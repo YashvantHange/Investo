@@ -1,0 +1,14 @@
+{
+  "//": "Claude Desktop: merge into claude_desktop_config.json (Settings > Developer > Edit Config).",
+  "//note": "Claude Desktop does NOT run from the project folder, so give the ABSOLUTE path to",
+  "//note2": "scripts/mcp_launcher.py in YOUR clone. The launcher finds the project's .venv itself,",
+  "//note3": "so you do NOT hardcode a Python path. Run `python -m venv .venv && pip install -e .` first.",
+  "//windows-example": "C:/Users/<you>/Investo/scripts/mcp_launcher.py",
+  "//macos-linux-example": "/Users/<you>/Investo/scripts/mcp_launcher.py",
+  "mcpServers": {
+    "investo": {
+      "command": "python",
+      "args": ["/ABSOLUTE/PATH/TO/Investo/scripts/mcp_launcher.py"]
+    }
+  }
+}

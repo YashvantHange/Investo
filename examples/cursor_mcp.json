@@ -1,0 +1,12 @@
+{
+  "//": "Cursor: put this at .cursor/mcp.json in the PROJECT (runs from the project root, so the",
+  "//note": "relative launcher path below works with no edits). For a GLOBAL ~/.cursor/mcp.json,",
+  "//note2": "use the ABSOLUTE path to scripts/mcp_launcher.py instead. Run `pip install -e .` in a",
+  "//note3": ".venv first; the launcher finds that venv automatically.",
+  "mcpServers": {
+    "investo": {
+      "command": "python",
+      "args": ["scripts/mcp_launcher.py"]
+    }
+  }
+}

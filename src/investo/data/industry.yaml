@@ -1,0 +1,90 @@
+# Curated industry intelligence keyed by Yahoo sector (broad, editable, India-aware).
+# Peer-group data in peers.yaml takes precedence for outlook/CAGR when a company is in a group.
+sectors:
+  Technology:
+    outlook: high
+    industry_cagr: "~8-10% (cloud, digital, AI-led services; est.)"
+    sub_domains: [IT services & outsourcing, Cloud migration, AI & data engineering, Digital transformation, Product engineering]
+    demand_drivers: [Enterprise digitization, Cloud adoption, AI/GenAI budgets, Cost-optimization deals, Global capability centers in India]
+    future_demand: "Structurally rising as enterprises modernize; near-term tied to US/EU IT budgets."
+    risks: [Discretionary spend cuts in slowdowns, USD/INR swings, Wage inflation & attrition, AI disrupting linear headcount model, Visa/immigration policy]
+
+  Financial Services:
+    outlook: high
+    industry_cagr: "~12-15% credit / AUM growth (est.)"
+    sub_domains: [Retail lending, Corporate banking, NBFC & consumer finance, Insurance, Asset & wealth management]
+    demand_drivers: [Under-penetrated credit, Rising incomes & formalization, Digital payments (UPI), Financialization of savings]
+    future_demand: "Long structural runway from low credit and insurance penetration in India."
+    risks: [Credit/NPA cycles, RBI regulation & rate cycles, Net interest margin compression, Deposit competition, Fintech disruption]
+
+  Healthcare:
+    outlook: high
+    industry_cagr: "~10-12% (domestic pharma + exports; est.)"
+    sub_domains: [Generics & APIs, Specialty & complex generics, CDMO/CRAMS, Domestic branded formulations, Hospitals & diagnostics]
+    demand_drivers: [Aging global population, Patent cliffs & generics, China+1 in APIs, Rising Indian healthcare spend]
+    future_demand: "Resilient, non-cyclical; export growth plus rising domestic consumption."
+    risks: [USFDA plant inspections, US generic price erosion, Regulatory/pricing controls (NPPA), Currency, R&D productivity]
+
+  Consumer Defensive:
+    outlook: medium
+    industry_cagr: "~8-10% (volume + premiumization; est.)"
+    sub_domains: [Packaged foods, Home & personal care, Beverages, Staples]
+    demand_drivers: [Rural recovery, Premiumization, Distribution expansion, Rising disposable income]
+    future_demand: "Steady compounding; volume growth plus mix improvement."
+    risks: [Input-cost inflation, Rural demand weakness, Private-label & D2C competition, Slow volume growth]
+
+  Consumer Cyclical:
+    outlook: medium
+    industry_cagr: "~9-12% (discretionary recovery; est.)"
+    sub_domains: [Automobiles, Auto components, Retail & apparel, Consumer durables, Hospitality]
+    demand_drivers: [Rising incomes, EV transition, Organized-retail shift, Premiumization, Festive/wedding demand]
+    future_demand: "Cyclical but structurally growing with the discretionary consumption story."
+    risks: [Interest-rate sensitivity, Commodity/input costs, Cyclical demand swings, EV transition capex]
+
+  Energy:
+    outlook: medium
+    industry_cagr: "~5-7% (with energy-transition capex; est.)"
+    sub_domains: [Oil & gas E&P, Refining & marketing, Petrochemicals, City gas distribution, Renewables]
+    demand_drivers: [Energy demand growth, Refining margins, Petchem cycle, Green-energy investment]
+    future_demand: "Steady demand, but long-term transition risk to fossil fuels."
+    risks: [Crude-price volatility, Regulated pricing/subsidies, Energy-transition disruption, Heavy capex cycles]
+
+  Basic Materials:
+    outlook: low
+    industry_cagr: "~4-6% (cyclical; est.)"
+    sub_domains: [Steel, Aluminium & base metals, Cement, Specialty chemicals, Mining]
+    demand_drivers: [Infrastructure & construction, China demand, China+1 in chemicals, Housing cycle]
+    future_demand: "Cyclical; tied to global commodity prices and infra spending."
+    risks: [Commodity-price cycles, Chinese oversupply, Energy costs, Environmental regulation]
+
+  Industrials:
+    outlook: high
+    industry_cagr: "~10-13% (capex + infra upcycle; est.)"
+    sub_domains: [Capital goods, EPC & construction, Defense, Railways, Logistics]
+    demand_drivers: [Government capex & infra push, Manufacturing/PLI, Defense indigenization, Private capex revival]
+    future_demand: "Strong on India's infrastructure and manufacturing capex cycle."
+    risks: [Order-execution & working-capital, Commodity costs, Policy/election cycles, Project delays]
+
+  Utilities:
+    outlook: high
+    industry_cagr: "~7-9% (renewables-led; est.)"
+    sub_domains: [Power generation, Transmission & distribution, Renewables, Gas utilities]
+    demand_drivers: [Rising power demand, Renewable-energy targets, Grid investment, Electrification]
+    future_demand: "Growing with electrification and the renewable-energy build-out."
+    risks: [Regulated returns, DISCOM payment risk, Fuel availability, High capital intensity]
+
+  Communication Services:
+    outlook: high
+    industry_cagr: "~8-10% (data + tariff; est.)"
+    sub_domains: [Telecom, Digital media & platforms, Broadband, Content]
+    demand_drivers: [Data-consumption growth, Tariff hikes, 5G monetization, Digital adoption]
+    future_demand: "Rising data usage and pricing power after consolidation."
+    risks: [Capex intensity & debt, Regulatory/spectrum costs, Price competition, Technology shifts]
+
+  Real Estate:
+    outlook: medium
+    industry_cagr: "~10-12% (housing upcycle; est.)"
+    sub_domains: [Residential, Commercial & office, REITs, Warehousing]
+    demand_drivers: [Housing-cycle upturn, Urbanization, Office/warehousing demand, Consolidation to branded players]
+    future_demand: "Favorable mid-cycle; consolidation benefits large, branded developers."
+    risks: [Interest-rate sensitivity, Cyclical demand, Regulatory (RERA) & approvals, High leverage]

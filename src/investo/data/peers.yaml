@@ -1,0 +1,129 @@
+# Curated peer groups, India-first (NSE symbols). Extend freely.
+# Each group: label, outlook (high|medium|low), industry_cagr (display string), members.
+# A company is matched to a group by membership; peers = the other members.
+groups:
+  it_services:
+    label: IT Services
+    outlook: high
+    industry_cagr: "~6-8% global IT services spend (est.)"
+    members: [TCS.NS, INFY.NS, WIPRO.NS, HCLTECH.NS, TECHM.NS, LTIM.NS, MPHASIS.NS, PERSISTENT.NS, COFORGE.NS]
+
+  private_banks:
+    label: Private Banks
+    outlook: high
+    industry_cagr: "~12-15% credit growth (est.)"
+    members: [HDFCBANK.NS, ICICIBANK.NS, KOTAKBANK.NS, AXISBANK.NS, INDUSINDBK.NS, IDFCFIRSTB.NS, FEDERALBNK.NS]
+
+  psu_banks:
+    label: PSU Banks
+    outlook: medium
+    industry_cagr: "~10-12% credit growth (est.)"
+    members: [SBIN.NS, BANKBARODA.NS, PNB.NS, CANBK.NS, UNIONBANK.NS, INDIANB.NS]
+
+  nbfc:
+    label: NBFC / Financials
+    outlook: high
+    industry_cagr: "~14-16% AUM growth (est.)"
+    members: [BAJFINANCE.NS, BAJAJFINSV.NS, CHOLAFIN.NS, SHRIRAMFIN.NS, MUTHOOTFIN.NS, LICHSGFIN.NS, SBICARD.NS]
+
+  auto_oem:
+    label: Automobiles (OEM)
+    outlook: medium
+    industry_cagr: "~8-10% volume + EV shift (est.)"
+    members: [MARUTI.NS, M&M.NS, TATAMOTORS.NS, TMCV.NS, TMPV.NS, ASHOKLEY.NS, EICHERMOT.NS]
+
+  two_wheelers:
+    label: Two-Wheelers
+    outlook: medium
+    industry_cagr: "~6-8% volume + EV shift (est.)"
+    members: [HEROMOTOCO.NS, BAJAJ-AUTO.NS, TVSMOTOR.NS, EICHERMOT.NS]
+
+  fmcg:
+    label: FMCG
+    outlook: medium
+    industry_cagr: "~8-10% (rural + premiumization, est.)"
+    members: [HINDUNILVR.NS, ITC.NS, NESTLEIND.NS, BRITANNIA.NS, DABUR.NS, MARICO.NS, GODREJCP.NS, TATACONSUM.NS, COLPAL.NS]
+
+  pharma:
+    label: Pharmaceuticals
+    outlook: high
+    industry_cagr: "~10-12% (domestic + exports, est.)"
+    members: [SUNPHARMA.NS, DRREDDY.NS, CIPLA.NS, DIVISLAB.NS, LUPIN.NS, AUROPHARMA.NS, TORNTPHARM.NS, ZYDUSLIFE.NS]
+
+  oil_gas_energy:
+    label: Oil, Gas & Energy
+    outlook: medium
+    industry_cagr: "~5-7% (energy transition, est.)"
+    members: [RELIANCE.NS, ONGC.NS, IOC.NS, BPCL.NS, GAIL.NS, HINDPETRO.NS]
+
+  metals:
+    label: Metals & Mining
+    outlook: low
+    industry_cagr: "~4-6% (cyclical, est.)"
+    members: [TATASTEEL.NS, JSWSTEEL.NS, HINDALCO.NS, VEDL.NS, JINDALSTEL.NS, SAIL.NS, NMDC.NS]
+
+  cement:
+    label: Cement
+    outlook: medium
+    industry_cagr: "~7-9% (infra + housing, est.)"
+    members: [ULTRACEMCO.NS, SHREECEM.NS, AMBUJACEM.NS, ACC.NS, DALBHARAT.NS, JKCEMENT.NS]
+
+  paints:
+    label: Paints
+    outlook: medium
+    industry_cagr: "~9-11% (est.)"
+    members: [ASIANPAINT.NS, BERGEPAINT.NS, KANSAINER.NS, AKZOINDIA.NS]
+
+  telecom:
+    label: Telecom
+    outlook: high
+    industry_cagr: "~8-10% (data + tariff hikes, est.)"
+    members: [BHARTIARTL.NS, IDEA.NS, TATACOMM.NS, RELIANCE.NS]
+
+  power_utilities:
+    label: Power & Utilities
+    outlook: high
+    industry_cagr: "~7-9% (renewables push, est.)"
+    members: [NTPC.NS, POWERGRID.NS, TATAPOWER.NS, ADANIPOWER.NS, ADANIGREEN.NS, JSWENERGY.NS]
+
+  realty:
+    label: Real Estate
+    outlook: medium
+    industry_cagr: "~10-12% (housing cycle, est.)"
+    members: [DLF.NS, GODREJPROP.NS, OBEROIRLTY.NS, PRESTIGE.NS, LODHA.NS]
+
+  consumer_durables:
+    label: Consumer Durables / Electronics
+    outlook: high
+    industry_cagr: "~12-15% (premiumization + PLI, est.)"
+    members: [HAVELLS.NS, VOLTAS.NS, CROMPTON.NS, WHIRLPOOL.NS, BLUESTARCO.NS, DIXON.NS]
+
+  chemicals:
+    label: Specialty Chemicals
+    outlook: high
+    industry_cagr: "~10-12% (China+1, est.)"
+    members: [PIDILITIND.NS, SRF.NS, DEEPAKNTR.NS, AARTIIND.NS, NAVINFLUOR.NS, PIIND.NS]
+
+  insurance:
+    label: Insurance
+    outlook: high
+    industry_cagr: "~12-14% (under-penetration, est.)"
+    members: [SBILIFE.NS, HDFCLIFE.NS, ICICIPRULI.NS, ICICIGI.NS, LICI.NS]
+
+  retail:
+    label: Retail & Consumption
+    outlook: high
+    industry_cagr: "~15-18% (organized retail shift, est.)"
+    members: [DMART.NS, TRENT.NS, ABFRL.NS, VMART.NS]
+
+  airlines:
+    label: Aviation
+    outlook: medium
+    industry_cagr: "~10-12% (traffic growth, est.)"
+    members: [INDIGO.NS, SPICEJET.NS]
+
+  us_bigtech:
+    label: US Big Tech
+    outlook: high
+    industry_cagr: "~10-12% (cloud + AI, est.)"
+    members: [AAPL, MSFT, GOOGL, AMZN, META, NVDA]
