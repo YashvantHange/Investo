@@ -8,8 +8,6 @@
 
 **An AI investment-analysis agent you run from Claude or Cursor.**
 
-> ✅ Investo is **listed in the [Cursor Directory](https://cursor.directory)** — one-click install below.
-
 > ⚠️ **Research and education only — not investment advice.**
 
 Give Investo a company name — Indian (NSE/BSE) or global — and it gathers public financial
