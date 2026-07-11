@@ -8,8 +8,6 @@
 
 **An AI investment-analysis agent you run from Claude or Cursor.**
 
-> ⚠️ **Research and education only — not investment advice.**
-
 Give Investo a company name — Indian (NSE/BSE) or global — and it gathers public financial
 data and produces a full analysis: what the company does, its financials & ratios, a
 competitor comparison, DCF intrinsic value, economic moat, risks, management, recent news,
