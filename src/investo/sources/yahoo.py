@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any, Optional
+import time
+from typing import Any
 
 import httpx
 
@@ -26,7 +27,7 @@ for _name in ("yfinance", "yfinance.data", "yfinance.utils", "peewee"):
 for _name in ("httpx", "httpcore"):
     logging.getLogger(_name).setLevel(logging.WARNING)
 
-from ..models import CompanyProfile, Financials, FinancialPeriod, TickerCandidate
+from ..models import CompanyProfile, FinancialPeriod, Financials, TickerCandidate  # noqa: E402
 
 _YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
 _HTTP_HEADERS = {
@@ -37,14 +38,33 @@ _HTTP_HEADERS = {
     "Accept": "application/json",
 }
 
-# Simple in-process caches (cleared when the process restarts).
-_INFO_CACHE: dict[str, dict[str, Any]] = {}
+# In-process TTL caches (so a long-running server doesn't serve stale data, and repeated
+# calls within one analysis don't re-hit the network).
+_CACHE_TTL = 900.0  # 15 minutes for company info
+_FX_TTL = 3600.0  # 1 hour for FX rates
+_MISSING = object()
+_INFO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+def _cache_get(cache: dict[str, tuple[float, Any]], key: str, ttl: float) -> Any:
+    entry = cache.get(key)
+    if entry is None:
+        return _MISSING
+    stamped, value = entry
+    if time.monotonic() - stamped > ttl:
+        cache.pop(key, None)
+        return _MISSING
+    return value
+
+
+def _cache_set(cache: dict[str, tuple[float, Any]], key: str, value: Any) -> None:
+    cache[key] = (time.monotonic(), value)
 
 
 # --------------------------------------------------------------------------------------
 # Small helpers
 # --------------------------------------------------------------------------------------
-def _to_float(val: Any) -> Optional[float]:
+def _to_float(val: Any) -> float | None:
     """Coerce a value (possibly numpy / NaN / None) to a plain float or None."""
     if val is None:
         return None
@@ -57,12 +77,12 @@ def _to_float(val: Any) -> Optional[float]:
     return f
 
 
-def _to_int(val: Any) -> Optional[int]:
+def _to_int(val: Any) -> int | None:
     f = _to_float(val)
     return int(f) if f is not None else None
 
 
-def market_of_symbol(symbol: str, exchange: Optional[str] = None) -> str:
+def market_of_symbol(symbol: str, exchange: str | None = None) -> str:
     """Classify a symbol/exchange into a coarse market: 'IN' or 'US' or 'OTHER'."""
     s = (symbol or "").upper()
     ex = (exchange or "").upper()
@@ -78,7 +98,7 @@ def market_of_symbol(symbol: str, exchange: Optional[str] = None) -> str:
 # --------------------------------------------------------------------------------------
 def search(query: str, limit: int = 10) -> list[TickerCandidate]:
     """Query the Yahoo search endpoint and return ranked ticker candidates."""
-    params = {"q": query, "quotesCount": limit, "newsCount": 0, "listsCount": 0}
+    params: dict[str, Any] = {"q": query, "quotesCount": limit, "newsCount": 0, "listsCount": 0}
     try:
         with httpx.Client(timeout=10.0, headers=_HTTP_HEADERS) as client:
             resp = client.get(_YAHOO_SEARCH_URL, params=params)
@@ -118,8 +138,9 @@ def _ticker(symbol: str):
 def get_info(symbol: str) -> dict[str, Any]:
     """Fetch (and cache) the yfinance ``.info`` dict for a symbol. Never raises."""
     key = symbol.upper()
-    if key in _INFO_CACHE:
-        return _INFO_CACHE[key]
+    cached = _cache_get(_INFO_CACHE, key, _CACHE_TTL)
+    if cached is not _MISSING:
+        return cached
     info: dict[str, Any] = {}
     try:
         t = _ticker(symbol)
@@ -129,7 +150,7 @@ def get_info(symbol: str) -> dict[str, Any]:
         except Exception:
             raw = getattr(t, "info", None)
         if isinstance(raw, dict):
-            info = raw
+            info = dict(raw)
     except Exception:
         info = {}
     # Fill price/market cap from fast_info if missing -- but only for symbols that clearly
@@ -143,12 +164,15 @@ def get_info(symbol: str) -> dict[str, Any]:
             info.setdefault("currency", getattr(fi, "currency", None))
         except Exception:
             pass
-    _INFO_CACHE[key] = info
+    _cache_set(_INFO_CACHE, key, info)
     return info
 
 
 def get_profile(symbol: str) -> CompanyProfile:
-    info = get_info(symbol)
+    return profile_from_info(symbol, get_info(symbol))
+
+
+def profile_from_info(symbol: str, info: dict[str, Any]) -> CompanyProfile:
     return CompanyProfile(
         ticker=symbol.upper(),
         name=info.get("longName") or info.get("shortName"),
@@ -199,7 +223,7 @@ def _df_to_periods(df, max_periods: int = 4) -> list[FinancialPeriod]:
             label = col.date().isoformat() if hasattr(col, "date") else str(col)
         except Exception:
             label = str(col)
-        values: dict[str, Optional[float]] = {}
+        values: dict[str, float | None] = {}
         for idx in df.index:
             try:
                 values[str(idx)] = _to_float(df.at[idx, col])
@@ -270,10 +294,10 @@ def get_holders(symbol: str) -> dict[str, Any]:
     return result
 
 
-_FX_CACHE: dict[str, Optional[float]] = {}
+_FX_CACHE: dict[str, tuple[float, float | None]] = {}
 
 
-def fx_rate(from_ccy: Optional[str], to_ccy: Optional[str]) -> Optional[float]:
+def fx_rate(from_ccy: str | None, to_ccy: str | None) -> float | None:
     """Return how many units of *to_ccy* equal one unit of *from_ccy* (e.g. USD->INR ~ 83).
 
     Returns 1.0 when currencies match or are missing, None if the rate can't be fetched.
@@ -281,19 +305,20 @@ def fx_rate(from_ccy: Optional[str], to_ccy: Optional[str]) -> Optional[float]:
     if not from_ccy or not to_ccy or from_ccy.upper() == to_ccy.upper():
         return 1.0
     pair = f"{from_ccy.upper()}{to_ccy.upper()}=X"
-    if pair in _FX_CACHE:
-        return _FX_CACHE[pair]
-    rate: Optional[float] = None
+    cached = _cache_get(_FX_CACHE, pair, _FX_TTL)
+    if cached is not _MISSING:
+        return cached
+    rate: float | None = None
     try:
         fi = _ticker(pair).fast_info
         rate = _to_float(getattr(fi, "last_price", None))
     except Exception:
         rate = None
-    _FX_CACHE[pair] = rate
+    _cache_set(_FX_CACHE, pair, rate)
     return rate
 
 
-def get_esg_score(symbol: str) -> Optional[float]:
+def get_esg_score(symbol: str) -> float | None:
     """Return the total ESG (sustainability) score if available, else None."""
     try:
         sus = _ticker(symbol).sustainability

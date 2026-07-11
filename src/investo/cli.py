@@ -14,15 +14,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Optional
 
-from .models import AnalysisReport
+from .models import AnalysisReport, CompanyProfile
 
 
 # --------------------------------------------------------------------------------------
 # Formatting helpers
 # --------------------------------------------------------------------------------------
-def _money(value: Optional[float], currency: Optional[str]) -> str:
+def _money(value: float | None, currency: str | None) -> str:
     if value is None:
         return "n/a"
     cur = (currency or "").upper()
@@ -33,11 +32,11 @@ def _money(value: Optional[float], currency: Optional[str]) -> str:
     return f"{value:,.0f} {cur}".strip()
 
 
-def _pct(value: Optional[float]) -> str:
+def _pct(value: float | None) -> str:
     return f"{value:.1%}" if value is not None else "n/a"
 
 
-def _num(value: Optional[float], fmt: str = ".2f") -> str:
+def _num(value: float | None, fmt: str = ".2f") -> str:
     return format(value, fmt) if value is not None else "n/a"
 
 
@@ -61,7 +60,7 @@ def render_report(r: AnalysisReport) -> str:
             out.append(f"  ! {w}")
         return "\n".join(out)
 
-    p = r.profile
+    p = r.profile or CompanyProfile(ticker=r.resolved.symbol)
     out.append(f"\n\033[1m{p.name or r.resolved.symbol}\033[0m  ({r.resolved.symbol})")
     out.append(f"{p.sector or 'n/a'} / {p.industry or 'n/a'}  ·  {p.exchange or ''}  ·  {p.country or ''}")
     if p.market_cap:
@@ -100,7 +99,7 @@ def render_report(r: AnalysisReport) -> str:
         out.append(_rule(f"PEERS — {pc.sector or ''}"))
         out.append(f"  {'Ticker':13}{'MktCap':>12}{'NetM':>7}{'PE':>7}{'ROE':>7}{'RevGr':>7}{'Share':>7}")
         for row in pc.peers:
-            mc = _money(row.market_cap, r.profile.currency)
+            mc = _money(row.market_cap, p.currency)
             out.append(f"  {row.ticker:13}{mc:>12}{_pct(row.net_margin):>7}"
                        f"{_num(row.pe, '.1f'):>7}{_pct(row.roe):>7}"
                        f"{_pct(row.revenue_growth_yoy):>7}{_pct(row.market_share_proxy):>7}")
@@ -187,7 +186,7 @@ def _cmd_search(args: argparse.Namespace) -> int:
 def _cmd_score(args: argparse.Namespace) -> int:
     from .server import score_company
     result = score_company(args.ticker, args.market)
-    print(json.dumps(result, indent=2, default=str))
+    print(json.dumps(result.model_dump(), indent=2, default=str))
     return 0
 
 
@@ -231,7 +230,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     # Ensure ₹, box-drawing and arrow glyphs print on Windows (cp1252) consoles.
     for stream in (sys.stdout, sys.stderr):
         try:

@@ -6,16 +6,19 @@ Free and official, but US-scope: useful as a cross-check for US names or Indian 
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
-# SEC requires a descriptive User-Agent with contact info.
-_HEADERS = {"User-Agent": "Investo MCP research tool (contact: user@example.com)"}
+from ..config import CONFIG
+
+# SEC requires a descriptive User-Agent with contact info (set INVESTO_SEC_CONTACT to your
+# email for production use; defaults to the project URL).
+_HEADERS = {"User-Agent": f"Investo MCP research tool (contact: {CONFIG.sec_contact})"}
 _TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 _FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
 
-_ticker_map: Optional[dict[str, int]] = None
+_ticker_map: dict[str, int] | None = None
 
 
 def _load_ticker_map() -> dict[str, int]:
@@ -37,7 +40,7 @@ def _load_ticker_map() -> dict[str, int]:
     return mapping
 
 
-def _resolve_cik(ticker_or_cik: str) -> Optional[int]:
+def _resolve_cik(ticker_or_cik: str) -> int | None:
     s = ticker_or_cik.strip().upper()
     if s.isdigit():
         return int(s)
@@ -45,7 +48,7 @@ def _resolve_cik(ticker_or_cik: str) -> Optional[int]:
     return _load_ticker_map().get(base)
 
 
-def get_sec_facts(ticker_or_cik: str, concepts: Optional[list[str]] = None) -> dict[str, Any]:
+def get_sec_facts(ticker_or_cik: str, concepts: list[str] | None = None) -> dict[str, Any]:
     """Return selected US-GAAP facts (latest values) for a US-listed company/ADR."""
     cik = _resolve_cik(ticker_or_cik)
     if cik is None:
@@ -66,7 +69,7 @@ def get_sec_facts(ticker_or_cik: str, concepts: Optional[list[str]] = None) -> d
         if not node:
             continue
         units = node.get("units", {})
-        series = units.get("USD") or next(iter(units.values()), [])
+        series: list[dict[str, Any]] = units.get("USD") or next(iter(units.values()), [])
         if series:
             latest = sorted(series, key=lambda x: x.get("end", ""))[-1]
             out[concept] = {"value": latest.get("value"), "end": latest.get("end"),

@@ -15,8 +15,6 @@ These scorers are the single source of truth reused by moat.py / risk.py.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from ..models import DCFResult, Ratios, Score, ScoreBucket
 
 # Bucket weights (core ten sum to 100).
@@ -40,33 +38,33 @@ _FINANCIAL_SECTORS = {"Financial Services", "Financials", "Banks", "Insurance"}
 # --------------------------------------------------------------------------------------
 # Normalization helpers
 # --------------------------------------------------------------------------------------
-def _lin(x: Optional[float], lo: float, hi: float) -> Optional[float]:
+def _lin(x: float | None, lo: float, hi: float) -> float | None:
     """Higher-is-better linear map to [0, 1]."""
     if x is None or hi == lo:
         return None
     return max(0.0, min(1.0, (x - lo) / (hi - lo)))
 
 
-def _inv(x: Optional[float], lo: float, hi: float) -> Optional[float]:
+def _inv(x: float | None, lo: float, hi: float) -> float | None:
     """Lower-is-better linear map to [0, 1] (x=lo -> 1, x=hi -> 0)."""
     if x is None or hi == lo:
         return None
     return max(0.0, min(1.0, (hi - x) / (hi - lo)))
 
 
-def _avg(vals: list[Optional[float]]) -> Optional[float]:
+def _avg(vals: list[float | None]) -> float | None:
     vs = [v for v in vals if v is not None]
     return sum(vs) / len(vs) if vs else None
 
 
-def _pct(x: Optional[float]) -> str:
+def _pct(x: float | None) -> str:
     return f"{x:.1%}" if x is not None else "n/a"
 
 
 # --------------------------------------------------------------------------------------
 # Per-bucket scorers -> normalized [0,1]
 # --------------------------------------------------------------------------------------
-def score_growth(r: Ratios) -> tuple[Optional[float], str, dict]:
+def score_growth(r: Ratios) -> tuple[float | None, str, dict]:
     n = _avg([
         _lin(r.revenue_growth_yoy, -0.05, 0.25),
         _lin(r.revenue_cagr_3y, 0.0, 0.20),
@@ -77,7 +75,7 @@ def score_growth(r: Ratios) -> tuple[Optional[float], str, dict]:
                     "earnings_growth_yoy": r.earnings_growth_yoy}
 
 
-def score_profitability(r: Ratios) -> tuple[Optional[float], str, dict]:
+def score_profitability(r: Ratios) -> tuple[float | None, str, dict]:
     n = _avg([
         _lin(r.roe, 0.05, 0.25),
         _lin(r.roce, 0.08, 0.30),
@@ -88,7 +86,7 @@ def score_profitability(r: Ratios) -> tuple[Optional[float], str, dict]:
     return n, rat, {"roe": r.roe, "roce": r.roce, "net_margin": r.net_margin}
 
 
-def score_cashflow(r: Ratios) -> tuple[Optional[float], str, dict]:
+def score_cashflow(r: Ratios) -> tuple[float | None, str, dict]:
     n = _avg([
         _lin(r.fcf_margin, 0.0, 0.20),
         _lin(r.ocf_to_ebitda, 0.5, 1.2),
@@ -98,7 +96,7 @@ def score_cashflow(r: Ratios) -> tuple[Optional[float], str, dict]:
     return n, rat, {"fcf_margin": r.fcf_margin, "ocf_to_ebitda": r.ocf_to_ebitda}
 
 
-def score_debt(r: Ratios, sector: Optional[str] = None) -> tuple[Optional[float], str, dict]:
+def score_debt(r: Ratios, sector: str | None = None) -> tuple[float | None, str, dict]:
     is_financial = sector in _FINANCIAL_SECTORS
     parts = [
         _lin(r.interest_coverage, 2.0, 12.0),
@@ -115,7 +113,7 @@ def score_debt(r: Ratios, sector: Optional[str] = None) -> tuple[Optional[float]
                     "current_ratio": r.current_ratio}
 
 
-def score_valuation(r: Ratios, dcf: Optional[DCFResult] = None) -> tuple[Optional[float], str, dict]:
+def score_valuation(r: Ratios, dcf: DCFResult | None = None) -> tuple[float | None, str, dict]:
     multiples = _avg([
         _inv(r.pe, 8.0, 40.0),
         _inv(r.pb, 1.0, 8.0),
@@ -127,6 +125,7 @@ def score_valuation(r: Ratios, dcf: Optional[DCFResult] = None) -> tuple[Optiona
     if mos is not None:
         dcf_score = _lin(max(-1.0, min(0.7, mos)), -0.3, 0.4)  # clamp: DCF unreliable for capex-heavy
     # Multiples dominate (0.75); DCF is a secondary cross-check (0.25).
+    n: float | None
     if multiples is not None and dcf_score is not None:
         n = 0.75 * multiples + 0.25 * dcf_score
     else:
@@ -138,7 +137,7 @@ def score_valuation(r: Ratios, dcf: Optional[DCFResult] = None) -> tuple[Optiona
     return n, rat, {"pe": r.pe, "pb": r.pb, "ev_ebitda": r.ev_ebitda, "dcf_margin_of_safety": mos}
 
 
-def score_moat(r: Ratios, market_share_proxy: Optional[float] = None) -> tuple[Optional[float], str, dict]:
+def score_moat(r: Ratios, market_share_proxy: float | None = None) -> tuple[float | None, str, dict]:
     # Gross margin is not meaningful for banks/financials (reported as 0) -> treat as N/A.
     gm = r.gross_margin if (r.gross_margin and r.gross_margin > 0) else None
     n = _avg([
@@ -155,7 +154,7 @@ def score_moat(r: Ratios, market_share_proxy: Optional[float] = None) -> tuple[O
                     "market_share_proxy": market_share_proxy}
 
 
-def score_management(r: Ratios, promoter_holding: Optional[float] = None) -> tuple[Optional[float], str, dict]:
+def score_management(r: Ratios, promoter_holding: float | None = None) -> tuple[float | None, str, dict]:
     cap_eff = _avg([_lin(r.roic, 0.08, 0.22), _lin(r.roe, 0.10, 0.25)])
     # A meaningful promoter stake (skin in the game) informs the score. A tiny/zero stake is
     # NOT a negative -- many well-run banks/MNCs are widely held with no promoter -- so treat
@@ -175,7 +174,7 @@ def score_management(r: Ratios, promoter_holding: Optional[float] = None) -> tup
 _OUTLOOK_MAP = {"high": 0.85, "medium": 0.55, "low": 0.30}
 
 
-def score_industry(outlook: Optional[str] = None, cagr_hint: Optional[str] = None) -> tuple[Optional[float], str, dict]:
+def score_industry(outlook: str | None = None, cagr_hint: str | None = None) -> tuple[float | None, str, dict]:
     n = _OUTLOOK_MAP.get((outlook or "").lower())
     rat = f"industry outlook: {outlook or 'medium (default)'}"
     if cagr_hint:
@@ -183,7 +182,7 @@ def score_industry(outlook: Optional[str] = None, cagr_hint: Optional[str] = Non
     return (n if n is not None else 0.55), rat, {}
 
 
-def score_innovation(r: Ratios, product_news: Optional[bool] = None) -> tuple[Optional[float], str, dict]:
+def score_innovation(r: Ratios, product_news: bool | None = None) -> tuple[float | None, str, dict]:
     base = _lin(r.rd_intensity, 0.0, 0.08)
     if base is None:
         base = 0.45  # many firms don't report R&D; assume moderate
@@ -193,7 +192,7 @@ def score_innovation(r: Ratios, product_news: Optional[bool] = None) -> tuple[Op
     return base, rat, {"rd_intensity": r.rd_intensity}
 
 
-def score_risk(r: Ratios) -> tuple[Optional[float], str, dict]:
+def score_risk(r: Ratios) -> tuple[float | None, str, dict]:
     """Higher = safer."""
     n = _avg([
         _inv(r.debt_to_equity, 0.0, 2.0),
@@ -206,7 +205,7 @@ def score_risk(r: Ratios) -> tuple[Optional[float], str, dict]:
                     "interest_coverage": r.interest_coverage}
 
 
-def score_esg(esg_total: Optional[float]) -> Optional[float]:
+def score_esg(esg_total: float | None) -> float | None:
     """yfinance total ESG is a *risk* score (lower = better, ~0-40). Invert to [0,1]."""
     return _inv(esg_total, 10.0, 35.0)
 
@@ -230,14 +229,14 @@ def compute_score(
     ticker: str,
     ratios: Ratios,
     *,
-    dcf: Optional[DCFResult] = None,
-    sector: Optional[str] = None,
-    market_share_proxy: Optional[float] = None,
-    promoter_holding: Optional[float] = None,
-    industry_outlook: Optional[str] = None,
-    industry_cagr_hint: Optional[str] = None,
-    product_news: Optional[bool] = None,
-    esg_total: Optional[float] = None,
+    dcf: DCFResult | None = None,
+    sector: str | None = None,
+    market_share_proxy: float | None = None,
+    promoter_holding: float | None = None,
+    industry_outlook: str | None = None,
+    industry_cagr_hint: str | None = None,
+    product_news: bool | None = None,
+    esg_total: float | None = None,
 ) -> Score:
     """Assemble the 11-bucket composite score, normalized to 100."""
     specs = [
@@ -268,7 +267,8 @@ def compute_score(
         possible += weight
         buckets.append(ScoreBucket(
             name=name, weight=weight, score=round(points, 2), normalized=round(norm, 3),
-            kind=kind, rationale=note, drivers=drivers,
+            kind=kind,  # type: ignore[arg-type]  # always "computed"/"heuristic"
+            rationale=note, drivers=drivers,
         ))
 
     esg_included = False

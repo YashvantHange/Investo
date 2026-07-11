@@ -2,7 +2,7 @@
 
 from investo.analysis.dcf import compute_dcf
 from investo.analysis.ratios import compute_ratios
-from investo.models import Financials, FinancialPeriod
+from investo.models import FinancialPeriod, Financials
 
 
 def _fixture() -> tuple[dict, Financials]:

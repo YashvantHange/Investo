@@ -65,3 +65,72 @@ def fmp_profile(symbol: str) -> dict[str, Any]:
             return data[0] if isinstance(data, list) and data else {}
     except Exception:
         return {}
+
+
+def _f(value: Any) -> Any:
+    """Coerce Alpha Vantage/FMP string numerics to float; drop 'None'/'-'/'' placeholders."""
+    if value in (None, "None", "-", "", "NaN"):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return value  # keep genuine strings (e.g. names)
+
+
+def overview_as_info(symbol: str) -> dict[str, Any]:
+    """Return licensed fundamentals mapped to Yahoo-style ``info`` keys, or {} if unavailable.
+
+    Used as the *primary* overlay for a symbol when an API key is configured: values here
+    take precedence over Yahoo's for the fields they cover. Restricted to US-style symbols
+    (no exchange suffix); NSE/BSE fundamentals coverage on these APIs is poor, so Yahoo remains
+    the source of record for Indian listings.
+    """
+    if "." in symbol:  # exchange-suffixed (e.g. .NS/.BO) -> keyed coverage unreliable
+        return {}
+
+    av = alphavantage_overview(symbol)
+    if av:
+        return {k: v for k, v in {
+            "longName": av.get("Name"),
+            "sector": (av.get("Sector") or "").title() or None,
+            "industry": av.get("Industry"),
+            "longBusinessSummary": av.get("Description"),
+            "country": av.get("Country"),
+            "currency": av.get("Currency"),
+            "financialCurrency": av.get("Currency"),
+            "marketCap": _f(av.get("MarketCapitalization")),
+            "trailingPE": _f(av.get("PERatio")),
+            "forwardPE": _f(av.get("ForwardPE")),
+            "priceToBook": _f(av.get("PriceToBookRatio")),
+            "priceToSalesTrailing12Months": _f(av.get("PriceToSalesRatioTTM")),
+            "enterpriseToEbitda": _f(av.get("EVToEBITDA")),
+            "returnOnEquity": _f(av.get("ReturnOnEquityTTM")),
+            "returnOnAssets": _f(av.get("ReturnOnAssetsTTM")),
+            "profitMargins": _f(av.get("ProfitMargin")),
+            "operatingMargins": _f(av.get("OperatingMarginTTM")),
+            "dividendYield": _f(av.get("DividendYield")),
+            "beta": _f(av.get("Beta")),
+            "totalRevenue": _f(av.get("RevenueTTM")),
+            "revenueGrowth": _f(av.get("QuarterlyRevenueGrowthYOY")),
+            "earningsGrowth": _f(av.get("QuarterlyEarningsGrowthYOY")),
+            "_source": "alphavantage",
+        }.items() if v is not None}
+
+    fmp = fmp_profile(symbol)
+    if fmp:
+        return {k: v for k, v in {
+            "longName": fmp.get("companyName"),
+            "sector": fmp.get("sector"),
+            "industry": fmp.get("industry"),
+            "longBusinessSummary": fmp.get("description"),
+            "country": fmp.get("country"),
+            "currency": fmp.get("currency"),
+            "website": fmp.get("website"),
+            "marketCap": _f(fmp.get("mktCap")),
+            "currentPrice": _f(fmp.get("price")),
+            "beta": _f(fmp.get("beta")),
+            "fullTimeEmployees": _f(fmp.get("fullTimeEmployees")),
+            "_source": "fmp",
+        }.items() if v is not None}
+
+    return {}

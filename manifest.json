@@ -1,0 +1,73 @@
+{
+  "manifest_version": "0.2",
+  "name": "investo",
+  "display_name": "Investo — Investment Analysis",
+  "version": "0.1.0",
+  "description": "Analyze companies (India-first NSE/BSE + global): financials, ratios, peers, DCF, moat, risk, news and a 0-100 rating.",
+  "long_description": "Investo is an MCP server that, given a company name or ticker, gathers public financial data and produces a full investment analysis: profile & sector, financial statements and ratios, a competitor comparison, DCF intrinsic value, economic moat, risk, management, recent news, SWOT seeds and a balanced 0-100 rating. Primary focus: Indian companies listed on NSE (.NS) and BSE (.BO); US/global supported too. Research/education only — not investment advice.",
+  "author": {
+    "name": "Yashvant Hange",
+    "url": "https://github.com/YashvantHange"
+  },
+  "homepage": "https://github.com/YashvantHange/Investo",
+  "documentation": "https://github.com/YashvantHange/Investo#readme",
+  "support": "https://github.com/YashvantHange/Investo/issues",
+  "license": "MIT",
+  "keywords": ["finance", "investing", "stocks", "nse", "bse", "valuation", "dcf"],
+  "server": {
+    "type": "python",
+    "entry_point": "src/investo/server.py",
+    "mcp_config": {
+      "command": "uvx",
+      "args": ["--from", "investo", "investo-mcp"],
+      "env": {
+        "ALPHAVANTAGE_API_KEY": "${user_config.alphavantage_api_key}",
+        "FMP_API_KEY": "${user_config.fmp_api_key}",
+        "FINNHUB_API_KEY": "${user_config.finnhub_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "alphavantage_api_key": {
+      "type": "string",
+      "title": "Alpha Vantage API key",
+      "description": "Optional — enables licensed fundamentals (primary source when set).",
+      "sensitive": true,
+      "required": false
+    },
+    "fmp_api_key": {
+      "type": "string",
+      "title": "Financial Modeling Prep API key",
+      "description": "Optional — alternate licensed fundamentals source.",
+      "sensitive": true,
+      "required": false
+    },
+    "finnhub_api_key": {
+      "type": "string",
+      "title": "Finnhub API key",
+      "description": "Optional — peers and company news.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "analyze_company", "description": "Full analysis bundle + 0-100 rating" },
+    { "name": "search_company", "description": "Resolve a name to an NSE/BSE/global ticker" },
+    { "name": "get_company_profile", "description": "Sector, business summary, market cap" },
+    { "name": "get_financials", "description": "Income statement / balance sheet / cash flow" },
+    { "name": "get_key_ratios", "description": "Valuation, profitability, leverage, growth ratios" },
+    { "name": "compare_peers", "description": "Competitor comparison table" },
+    { "name": "get_industry_intelligence", "description": "Sub-domains, demand drivers, CAGR, risks" },
+    { "name": "get_news", "description": "Categorized recent headlines" },
+    { "name": "get_management", "description": "Executives, holdings, capital allocation" },
+    { "name": "dcf_valuation", "description": "Intrinsic value, margin of safety, expected return" },
+    { "name": "moat_assessment", "description": "Economic-moat signals + score" },
+    { "name": "risk_assessment", "description": "Risk signals + safety score" },
+    { "name": "score_company", "description": "0-100 composite rating" },
+    { "name": "get_sec_facts", "description": "SEC EDGAR cross-check (US/ADR)" },
+    { "name": "provider_status", "description": "Active data providers + disclosure" }
+  ],
+  "compatibility": {
+    "runtimes": { "python": ">=3.10" }
+  }
+}

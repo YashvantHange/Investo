@@ -7,17 +7,14 @@ The host LLM refines the qualitative call (brand, switching costs, network effec
 
 from __future__ import annotations
 
-from typing import Optional
-
 from ..models import MoatSignals, Ratios
-from ..sources import yahoo
 from .scoring import score_moat
 
 
 def moat_assessment(
     symbol: str,
-    ratios: Optional[Ratios] = None,
-    market_share_proxy: Optional[float] = None,
+    ratios: Ratios | None = None,
+    market_share_proxy: float | None = None,
 ) -> MoatSignals:
     from .ratios import compute_ratios
 

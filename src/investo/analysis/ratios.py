@@ -14,11 +14,10 @@ missing.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from ..models import Financials, Ratios
 from . import finutils as F
-
 
 # Plausibility bounds: Yahoo occasionally returns currency-mismatched multiples
 # (e.g. INFY EV/EBITDA ~ 975 because EV is INR but EBITDA is USD). Values outside these
@@ -33,15 +32,15 @@ _BOUNDS: dict[str, tuple[float, float]] = {
 }
 
 
-def _from_info(info: dict[str, Any]) -> dict[str, Optional[float]]:
-    def g(key: str) -> Optional[float]:
+def _from_info(info: dict[str, Any]) -> dict[str, float | None]:
+    def g(key: str) -> float | None:
         v = info.get(key)
         try:
             return float(v) if v is not None else None
         except (TypeError, ValueError):
             return None
 
-    def bounded(name: str, value: Optional[float]) -> Optional[float]:
+    def bounded(name: str, value: float | None) -> float | None:
         if value is None:
             return None
         lo, hi = _BOUNDS[name]
@@ -74,7 +73,7 @@ def _from_info(info: dict[str, Any]) -> dict[str, Optional[float]]:
     }
 
 
-def _tax_rate(inc_values: dict[str, Optional[float]]) -> Optional[float]:
+def _tax_rate(inc_values: dict[str, float | None]) -> float:
     rate = F.pick(inc_values, *F.TAX_RATE)
     if rate is not None and 0 <= rate <= 1:
         return rate
@@ -86,11 +85,11 @@ def _tax_rate(inc_values: dict[str, Optional[float]]) -> Optional[float]:
     return 0.25  # sensible default effective tax rate
 
 
-def _from_statements(fin: Financials) -> dict[str, Optional[float]]:
+def _from_statements(fin: Financials) -> dict[str, float | None]:
     inc = F.latest(fin.income_statement)
     bal = F.latest(fin.balance_sheet)
     cf = F.latest(fin.cash_flow)
-    out: dict[str, Optional[float]] = {}
+    out: dict[str, float | None] = {}
 
     revenue = F.pick(inc, *F.REVENUE)
     ebit = F.pick(inc, *F.EBIT)
@@ -168,18 +167,18 @@ def _from_statements(fin: Financials) -> dict[str, Optional[float]]:
 
 def compute_ratios(
     symbol: str,
-    info: Optional[dict[str, Any]] = None,
-    financials: Optional[Financials] = None,
+    info: dict[str, Any] | None = None,
+    financials: Financials | None = None,
 ) -> Ratios:
     """Build a Ratios object, preferring Yahoo's precomputed values and filling gaps."""
-    from ..sources import yahoo
+    from ..sources import data
 
     if info is None:
-        info = yahoo.get_info(symbol)
+        info = data.get_info(symbol)
     if financials is None:
-        financials = yahoo.get_financials(symbol)
+        financials = data.get_financials(symbol)
 
-    merged: dict[str, Optional[float]] = {}
+    merged: dict[str, Any] = {}
     stmt = _from_statements(financials)
     inf = _from_info(info)
     # Start with statement-derived, then let non-None Yahoo values take precedence.

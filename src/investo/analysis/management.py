@@ -9,14 +9,14 @@ filings for the authoritative figure).
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from ..models import Financials, Management, Ratios
-from ..sources import yahoo
+from ..sources import data
 from . import finutils as F
 
 
-def _pct_from_holders(holders: dict[str, Any], *needles: str) -> Optional[float]:
+def _pct_from_holders(holders: dict[str, Any], *needles: str) -> float | None:
     mh = holders.get("major_holders")
     if not isinstance(mh, dict):
         return None
@@ -34,20 +34,20 @@ def _pct_from_holders(holders: dict[str, Any], *needles: str) -> Optional[float]
 
 def get_management(
     symbol: str,
-    info: Optional[dict[str, Any]] = None,
-    financials: Optional[Financials] = None,
-    ratios: Optional[Ratios] = None,
+    info: dict[str, Any] | None = None,
+    financials: Financials | None = None,
+    ratios: Ratios | None = None,
 ) -> Management:
     from .ratios import compute_ratios
 
     if info is None:
-        info = yahoo.get_info(symbol)
+        info = data.get_info(symbol)
     if financials is None:
-        financials = yahoo.get_financials(symbol)
+        financials = data.get_financials(symbol)
     if ratios is None:
         ratios = compute_ratios(symbol, info=info, financials=financials)
 
-    holders = yahoo.get_holders(symbol)
+    holders = data.get_holders(symbol)
     execs = []
     for o in info.get("companyOfficers", []) or []:
         if isinstance(o, dict) and o.get("name"):

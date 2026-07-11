@@ -12,10 +12,9 @@ the local INR listing.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from .models import SearchResult, TickerCandidate
-from .sources import yahoo
+from .sources import data
 
 # A bare ticker already carrying an exchange suffix, e.g. INFY.NS / TATAMOTORS.BO
 _SUFFIXED_TICKER = re.compile(r"^[A-Za-z0-9&-]{1,15}\.[A-Za-z]{1,3}$")
@@ -27,7 +26,7 @@ _STOP_WORDS = {
 }
 
 
-def _norm_tokens(text: Optional[str]) -> list[str]:
+def _norm_tokens(text: str | None) -> list[str]:
     tokens = re.findall(r"[a-z0-9]+", (text or "").lower())
     return [t for t in tokens if t not in _STOP_WORDS]
 
@@ -89,15 +88,15 @@ def rank_candidates(candidates: list[TickerCandidate], market: str, query: str) 
     )
 
 
-def _valid_listing(symbol: str) -> Optional[str]:
+def _valid_listing(symbol: str) -> str | None:
     """Return the company name if *symbol* looks like a real, priced listing, else None."""
-    info = yahoo.get_info(symbol)
+    info = data.get_info(symbol)
     name = info.get("longName") or info.get("shortName")
     priced = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("sector")
     return name if (name and priced) else None
 
 
-def _probe_local_listing(base_symbol: str) -> Optional[TickerCandidate]:
+def _probe_local_listing(base_symbol: str) -> TickerCandidate | None:
     """Try to find an NSE/BSE listing for a base symbol (e.g. 'INFY' -> 'INFY.NS')."""
     base = base_symbol.upper().split(".")[0]
     for suffix in (".NS", ".BO"):
@@ -115,12 +114,12 @@ def resolve(query: str, market: str = "IN") -> SearchResult:
 
     # 1) Already a suffixed ticker -> accept directly (still search for alternatives).
     if _SUFFIXED_TICKER.match(q):
-        resolved = TickerCandidate(symbol=q.upper(), market=yahoo.market_of_symbol(q))
-        alts = rank_candidates(yahoo.search(q, limit=10), market, query)
+        resolved = TickerCandidate(symbol=q.upper(), market=data.market_of_symbol(q))
+        alts = rank_candidates(data.search(q, limit=10), market, query)
         return SearchResult(query=query, resolved=resolved, candidates=alts or [resolved])
 
     # 2) Search Yahoo and rank by relevance + market preference.
-    candidates = yahoo.search(q, limit=10)
+    candidates = data.search(q, limit=10)
     if not candidates:
         return SearchResult(
             query=query,
@@ -146,7 +145,7 @@ def resolve(query: str, market: str = "IN") -> SearchResult:
     return SearchResult(query=query, resolved=resolved, candidates=ranked, note=note)
 
 
-def resolve_ticker(query: str, market: str = "IN") -> Optional[str]:
+def resolve_ticker(query: str, market: str = "IN") -> str | None:
     """Convenience: return just the resolved symbol string (or None)."""
     result = resolve(query, market)
     return result.resolved.symbol if result.resolved else None

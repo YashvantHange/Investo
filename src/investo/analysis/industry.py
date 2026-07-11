@@ -6,16 +6,14 @@ specific outlook/CAGR (``data/peers.yaml``) when the company belongs to a curate
 
 from __future__ import annotations
 
-from typing import Optional
-
 from ..data import industry_notes
 from ..models import IndustryIntelligence
-from ..sources import yahoo
+from ..sources import data
 from .peers import _group_for
 
 
 def get_industry_intelligence(symbol: str) -> IndustryIntelligence:
-    info = yahoo.get_info(symbol)
+    info = data.get_info(symbol)
     sector = info.get("sector")
     industry = info.get("industry")
 
@@ -49,9 +47,9 @@ def get_industry_intelligence(symbol: str) -> IndustryIntelligence:
     return result
 
 
-def industry_outlook(symbol: str) -> tuple[Optional[str], Optional[str]]:
+def industry_outlook(symbol: str) -> tuple[str | None, str | None]:
     """Return (outlook, cagr_hint) used by the composite score."""
-    info = yahoo.get_info(symbol)
+    info = data.get_info(symbol)
     sector = info.get("sector")
     notes = industry_notes().get(sector or "", {})
     outlook = notes.get("outlook")

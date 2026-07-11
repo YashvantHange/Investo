@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.json",
+  "name": "io.github.YashvantHange/investo",
+  "description": "AI investment-analysis MCP server (India-first NSE/BSE + global): financials, ratios, peers, DCF, economic moat, risk, news and a 0-100 rating.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/YashvantHange/Investo",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "investo",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "ALPHAVANTAGE_API_KEY",
+          "description": "Optional Alpha Vantage key for licensed fundamentals (primary when set).",
+          "isSecret": true,
+          "isRequired": false
+        },
+        {
+          "name": "FMP_API_KEY",
+          "description": "Optional Financial Modeling Prep key.",
+          "isSecret": true,
+          "isRequired": false
+        },
+        {
+          "name": "FINNHUB_API_KEY",
+          "description": "Optional Finnhub key (peers / company news).",
+          "isSecret": true,
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

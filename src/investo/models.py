@@ -7,7 +7,7 @@ should degrade gracefully (return what it has) rather than fail. Downstream cons
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,18 +23,18 @@ class TickerCandidate(_Base):
     """A single search match when resolving a company name to a ticker."""
 
     symbol: str
-    name: Optional[str] = None
-    exchange: Optional[str] = None
-    market: Optional[str] = None  # "IN" | "US" | other
-    quote_type: Optional[str] = None
-    score: Optional[float] = None  # ranking hint (higher = better)
+    name: str | None = None
+    exchange: str | None = None
+    market: str | None = None  # "IN" | "US" | other
+    quote_type: str | None = None
+    score: float | None = None  # ranking hint (higher = better)
 
 
 class SearchResult(_Base):
     query: str
-    resolved: Optional[TickerCandidate] = None
+    resolved: TickerCandidate | None = None
     candidates: list[TickerCandidate] = Field(default_factory=list)
-    note: Optional[str] = None
+    note: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -42,20 +42,20 @@ class SearchResult(_Base):
 # --------------------------------------------------------------------------------------
 class CompanyProfile(_Base):
     ticker: str
-    name: Optional[str] = None
-    exchange: Optional[str] = None
-    market: Optional[str] = None
-    country: Optional[str] = None
-    currency: Optional[str] = None
-    sector: Optional[str] = None
-    industry: Optional[str] = None
-    website: Optional[str] = None
-    business_summary: Optional[str] = None
-    employees: Optional[int] = None
-    market_cap: Optional[float] = None
-    current_price: Optional[float] = None
-    fifty_two_week_high: Optional[float] = None
-    fifty_two_week_low: Optional[float] = None
+    name: str | None = None
+    exchange: str | None = None
+    market: str | None = None
+    country: str | None = None
+    currency: str | None = None
+    sector: str | None = None
+    industry: str | None = None
+    website: str | None = None
+    business_summary: str | None = None
+    employees: int | None = None
+    market_cap: float | None = None
+    current_price: float | None = None
+    fifty_two_week_high: float | None = None
+    fifty_two_week_low: float | None = None
     key_executives: list[dict[str, Any]] = Field(default_factory=list)
 
 
@@ -66,12 +66,12 @@ class FinancialPeriod(_Base):
     """One reporting period's worth of line items for a single statement."""
 
     period: str  # e.g. "2024-03-31"
-    values: dict[str, Optional[float]] = Field(default_factory=dict)
+    values: dict[str, float | None] = Field(default_factory=dict)
 
 
 class Financials(_Base):
     ticker: str
-    currency: Optional[str] = None
+    currency: str | None = None
     period_type: Literal["annual", "quarterly"] = "annual"
     income_statement: list[FinancialPeriod] = Field(default_factory=list)
     balance_sheet: list[FinancialPeriod] = Field(default_factory=list)
@@ -83,46 +83,46 @@ class Financials(_Base):
 # --------------------------------------------------------------------------------------
 class Ratios(_Base):
     ticker: str
-    currency: Optional[str] = None
+    currency: str | None = None
 
     # Valuation
-    pe: Optional[float] = None
-    forward_pe: Optional[float] = None
-    pb: Optional[float] = None
-    peg: Optional[float] = None
-    ev_ebitda: Optional[float] = None
-    price_to_sales: Optional[float] = None
-    dividend_yield: Optional[float] = None
+    pe: float | None = None
+    forward_pe: float | None = None
+    pb: float | None = None
+    peg: float | None = None
+    ev_ebitda: float | None = None
+    price_to_sales: float | None = None
+    dividend_yield: float | None = None
 
     # Profitability / returns
-    roe: Optional[float] = None
-    roa: Optional[float] = None
-    roce: Optional[float] = None
-    roic: Optional[float] = None
-    gross_margin: Optional[float] = None
-    operating_margin: Optional[float] = None
-    net_margin: Optional[float] = None
+    roe: float | None = None
+    roa: float | None = None
+    roce: float | None = None
+    roic: float | None = None
+    gross_margin: float | None = None
+    operating_margin: float | None = None
+    net_margin: float | None = None
 
     # Leverage / liquidity
-    debt_to_equity: Optional[float] = None
-    interest_coverage: Optional[float] = None
-    current_ratio: Optional[float] = None
-    quick_ratio: Optional[float] = None
+    debt_to_equity: float | None = None
+    interest_coverage: float | None = None
+    current_ratio: float | None = None
+    quick_ratio: float | None = None
 
     # Growth
-    revenue_growth_yoy: Optional[float] = None
-    revenue_cagr_3y: Optional[float] = None
-    earnings_growth_yoy: Optional[float] = None
-    eps_cagr_3y: Optional[float] = None
+    revenue_growth_yoy: float | None = None
+    revenue_cagr_3y: float | None = None
+    earnings_growth_yoy: float | None = None
+    eps_cagr_3y: float | None = None
 
     # Cash flow
-    fcf: Optional[float] = None
-    fcf_margin: Optional[float] = None
-    ocf_to_ebitda: Optional[float] = None
+    fcf: float | None = None
+    fcf_margin: float | None = None
+    ocf_to_ebitda: float | None = None
 
     # Other
-    beta: Optional[float] = None
-    rd_intensity: Optional[float] = None  # R&D / revenue
+    beta: float | None = None
+    rd_intensity: float | None = None  # R&D / revenue
 
 
 # --------------------------------------------------------------------------------------
@@ -130,25 +130,25 @@ class Ratios(_Base):
 # --------------------------------------------------------------------------------------
 class PeerRow(_Base):
     ticker: str
-    name: Optional[str] = None
-    market_cap: Optional[float] = None
-    revenue_ttm: Optional[float] = None
-    net_margin: Optional[float] = None
-    operating_margin: Optional[float] = None
-    pe: Optional[float] = None
-    pb: Optional[float] = None
-    roe: Optional[float] = None
-    revenue_growth_yoy: Optional[float] = None
-    debt_to_equity: Optional[float] = None
-    market_share_proxy: Optional[float] = None  # revenue / sum(revenue) within peer set
+    name: str | None = None
+    market_cap: float | None = None
+    revenue_ttm: float | None = None
+    net_margin: float | None = None
+    operating_margin: float | None = None
+    pe: float | None = None
+    pb: float | None = None
+    roe: float | None = None
+    revenue_growth_yoy: float | None = None
+    debt_to_equity: float | None = None
+    market_share_proxy: float | None = None  # revenue / sum(revenue) within peer set
 
 
 class PeerComparison(_Base):
     ticker: str
-    sector: Optional[str] = None
+    sector: str | None = None
     peers: list[PeerRow] = Field(default_factory=list)
     summary: list[str] = Field(default_factory=list)  # grounded observations
-    note: Optional[str] = None
+    note: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -156,15 +156,15 @@ class PeerComparison(_Base):
 # --------------------------------------------------------------------------------------
 class IndustryIntelligence(_Base):
     ticker: str
-    sector: Optional[str] = None
-    industry: Optional[str] = None
+    sector: str | None = None
+    industry: str | None = None
     sub_domains: list[str] = Field(default_factory=list)
     demand_drivers: list[str] = Field(default_factory=list)
-    future_demand: Optional[str] = None
-    industry_cagr: Optional[str] = None  # curated string e.g. "~10-12% (FY24-30, est.)"
+    future_demand: str | None = None
+    industry_cagr: str | None = None  # curated string e.g. "~10-12% (FY24-30, est.)"
     risks: list[str] = Field(default_factory=list)
     source: Literal["curated", "keyed", "unknown"] = "curated"
-    note: Optional[str] = None
+    note: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -175,16 +175,16 @@ NewsCategory = Literal["earnings", "m&a", "management", "legal-regulatory", "pro
 
 class NewsItem(_Base):
     title: str
-    publisher: Optional[str] = None
-    link: Optional[str] = None
-    published: Optional[str] = None  # ISO date string
+    publisher: str | None = None
+    link: str | None = None
+    published: str | None = None  # ISO date string
     category: NewsCategory = "general"
 
 
 class NewsFeed(_Base):
     ticker: str
     items: list[NewsItem] = Field(default_factory=list)
-    note: Optional[str] = None
+    note: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -193,14 +193,14 @@ class NewsFeed(_Base):
 class Management(_Base):
     ticker: str
     key_executives: list[dict[str, Any]] = Field(default_factory=list)
-    promoter_holding: Optional[float] = None       # % (best-effort; often unavailable for India)
-    insider_holding: Optional[float] = None        # %
-    institutional_holding: Optional[float] = None   # %
-    roic: Optional[float] = None
-    dividend_payout_ratio: Optional[float] = None
-    buyback_signal: Optional[bool] = None
+    promoter_holding: float | None = None       # % (best-effort; often unavailable for India)
+    insider_holding: float | None = None        # %
+    institutional_holding: float | None = None   # %
+    roic: float | None = None
+    dividend_payout_ratio: float | None = None
+    buyback_signal: bool | None = None
     capital_allocation_notes: list[str] = Field(default_factory=list)
-    note: Optional[str] = None
+    note: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -208,20 +208,20 @@ class Management(_Base):
 # --------------------------------------------------------------------------------------
 class DCFResult(_Base):
     ticker: str
-    currency: Optional[str] = None
-    base_fcf: Optional[float] = None
-    growth_rate: Optional[float] = None
-    discount_rate: Optional[float] = None
-    terminal_growth: Optional[float] = None
-    years: Optional[int] = None
-    enterprise_value: Optional[float] = None
-    equity_value: Optional[float] = None
-    intrinsic_value_per_share: Optional[float] = None
-    current_price: Optional[float] = None
-    margin_of_safety: Optional[float] = None   # (intrinsic - price) / intrinsic
-    expected_return: Optional[float] = None    # (intrinsic - price) / price
+    currency: str | None = None
+    base_fcf: float | None = None
+    growth_rate: float | None = None
+    discount_rate: float | None = None
+    terminal_growth: float | None = None
+    years: int | None = None
+    enterprise_value: float | None = None
+    equity_value: float | None = None
+    intrinsic_value_per_share: float | None = None
+    current_price: float | None = None
+    margin_of_safety: float | None = None   # (intrinsic - price) / intrinsic
+    expected_return: float | None = None    # (intrinsic - price) / price
     assumptions: list[str] = Field(default_factory=list)
-    note: Optional[str] = None
+    note: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -229,29 +229,29 @@ class DCFResult(_Base):
 # --------------------------------------------------------------------------------------
 class MoatSignals(_Base):
     ticker: str
-    gross_margin: Optional[float] = None
-    margin_stability: Optional[float] = None  # lower stdev => more durable
-    roic: Optional[float] = None
-    market_share_proxy: Optional[float] = None
-    rd_intensity: Optional[float] = None
-    scale_rank: Optional[int] = None  # rank within peer set by revenue (1 = largest)
-    moat_score: Optional[float] = None  # 0-10 heuristic
+    gross_margin: float | None = None
+    margin_stability: float | None = None  # lower stdev => more durable
+    roic: float | None = None
+    market_share_proxy: float | None = None
+    rd_intensity: float | None = None
+    scale_rank: int | None = None  # rank within peer set by revenue (1 = largest)
+    moat_score: float | None = None  # 0-10 heuristic
     sources: list[str] = Field(default_factory=list)  # candidate moat sources present
     signals: list[str] = Field(default_factory=list)
-    note: Optional[str] = None
+    note: str | None = None
 
 
 class RiskSignals(_Base):
     ticker: str
-    debt_to_equity: Optional[float] = None
-    interest_coverage: Optional[float] = None
-    beta: Optional[float] = None
-    currency_exposure: Optional[str] = None
-    customer_concentration: Optional[str] = None
+    debt_to_equity: float | None = None
+    interest_coverage: float | None = None
+    beta: float | None = None
+    currency_exposure: str | None = None
+    customer_concentration: str | None = None
     regulatory_flags: list[str] = Field(default_factory=list)
-    risk_score: Optional[float] = None  # 0-5 heuristic (higher = safer)
+    risk_score: float | None = None  # 0-5 heuristic (higher = safer)
     signals: list[str] = Field(default_factory=list)
-    note: Optional[str] = None
+    note: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -263,8 +263,8 @@ class ScoreBucket(_Base):
     score: float            # points earned (0..weight)
     normalized: float       # 0..1 (score / weight)
     kind: Literal["computed", "heuristic"] = "computed"
-    rationale: Optional[str] = None
-    drivers: dict[str, Optional[float]] = Field(default_factory=dict)
+    rationale: str | None = None
+    drivers: dict[str, float | None] = Field(default_factory=dict)
 
 
 class Score(_Base):
@@ -273,7 +273,7 @@ class Score(_Base):
     verdict: str                 # e.g. "Strong" | "Fair" | "Weak"
     buckets: list[ScoreBucket] = Field(default_factory=list)
     esg_included: bool = False
-    note: Optional[str] = None
+    note: str | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -301,19 +301,19 @@ class AnalysisReport(_Base):
     """
 
     query: str
-    resolved: Optional[TickerCandidate] = None
-    profile: Optional[CompanyProfile] = None
-    ratios: Optional[Ratios] = None
-    peers: Optional[PeerComparison] = None
-    industry: Optional[IndustryIntelligence] = None
-    news: Optional[NewsFeed] = None
-    management: Optional[Management] = None
-    dcf: Optional[DCFResult] = None
-    moat: Optional[MoatSignals] = None
-    risk: Optional[RiskSignals] = None
-    score: Optional[Score] = None
+    resolved: TickerCandidate | None = None
+    profile: CompanyProfile | None = None
+    ratios: Ratios | None = None
+    peers: PeerComparison | None = None
+    industry: IndustryIntelligence | None = None
+    news: NewsFeed | None = None
+    management: Management | None = None
+    dcf: DCFResult | None = None
+    moat: MoatSignals | None = None
+    risk: RiskSignals | None = None
+    score: Score | None = None
     signals: list[Signal] = Field(default_factory=list)
     swot_seeds: list[SwotSeed] = Field(default_factory=list)
     growth_driver_hints: list[str] = Field(default_factory=list)
-    llm_guidance: Optional[str] = None
+    llm_guidance: str | None = None
     warnings: list[str] = Field(default_factory=list)

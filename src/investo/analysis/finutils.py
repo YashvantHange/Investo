@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
-from ..models import Financials, FinancialPeriod
+from ..models import FinancialPeriod
 
 
-def safe_div(numerator: Optional[float], denominator: Optional[float]) -> Optional[float]:
+def safe_div(numerator: float | None, denominator: float | None) -> float | None:
     if numerator is None or denominator is None:
         return None
     if denominator == 0:
@@ -15,7 +13,7 @@ def safe_div(numerator: Optional[float], denominator: Optional[float]) -> Option
     return numerator / denominator
 
 
-def pick(values: dict[str, Optional[float]], *keys: str) -> Optional[float]:
+def pick(values: dict[str, float | None], *keys: str) -> float | None:
     """Return the first non-None value among the given line-item keys."""
     for k in keys:
         v = values.get(k)
@@ -24,17 +22,17 @@ def pick(values: dict[str, Optional[float]], *keys: str) -> Optional[float]:
     return None
 
 
-def latest(periods: list[FinancialPeriod]) -> dict[str, Optional[float]]:
+def latest(periods: list[FinancialPeriod]) -> dict[str, float | None]:
     """Most-recent period's values (yfinance returns newest first)."""
     return periods[0].values if periods else {}
 
 
-def series(periods: list[FinancialPeriod], *keys: str) -> list[Optional[float]]:
+def series(periods: list[FinancialPeriod], *keys: str) -> list[float | None]:
     """A line item across periods, newest-first."""
     return [pick(p.values, *keys) for p in periods]
 
 
-def cagr(newest_first: list[Optional[float]]) -> Optional[float]:
+def cagr(newest_first: list[float | None]) -> float | None:
     """Compound annual growth rate from a newest-first series of positive values."""
     vals = [v for v in newest_first if v is not None]
     if len(vals) < 2:
@@ -46,7 +44,7 @@ def cagr(newest_first: list[Optional[float]]) -> Optional[float]:
     return (latest_v / oldest_v) ** (1.0 / years) - 1.0
 
 
-def yoy(newest_first: list[Optional[float]]) -> Optional[float]:
+def yoy(newest_first: list[float | None]) -> float | None:
     """Year-over-year growth between the two most recent periods."""
     vals = newest_first
     if len(vals) < 2:

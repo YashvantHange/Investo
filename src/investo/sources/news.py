@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
 
 import feedparser
 import httpx
 
-from ..models import NewsFeed, NewsItem
+from ..models import NewsCategory, NewsFeed, NewsItem
 from . import yahoo
 
 _GOOGLE_NEWS_RSS = "https://news.google.com/rss/search"
 
 _KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
-    ("earnings", ("earnings", "profit", "revenue", "results", "quarter", "q1", "q2", "q3", "q4",
-                  "guidance", "beats", "misses", "margin", "ebitda")),
+    ("earnings", ("earnings", "profit", "revenue", "results", "q1", "q2", "q3", "q4",
+                  "guidance", "beats", "misses", "ebitda")),
     ("m&a", ("acquire", "acquisition", "merger", "merges", "stake", "takeover", "buyout", "demerger")),
     ("management", ("ceo", "cfo", "chairman", "resign", "steps down", "appoint", "board", "director",
                     "promoter", "md &")),
@@ -26,11 +25,11 @@ _KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
 ]
 
 
-def _categorize(title: str) -> str:
+def _categorize(title: str) -> NewsCategory:
     t = f" {title.lower()} "
     for category, words in _KEYWORDS:
         if any(w in t for w in words):
-            return category
+            return category  # type: ignore[return-value]  # keys are NewsCategory literals
     return "general"
 
 
@@ -51,7 +50,7 @@ def _from_google(query: str, limit: int) -> list[NewsItem]:
         published = None
         if getattr(entry, "published_parsed", None):
             try:
-                published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).date().isoformat()
+                published = datetime(*entry.published_parsed[:6]).replace(tzinfo=timezone.utc).date().isoformat()
             except Exception:
                 published = None
         publisher = None
@@ -97,7 +96,7 @@ def _from_yahoo(symbol: str, limit: int) -> list[NewsItem]:
     return items
 
 
-def get_news(symbol: str, company_name: Optional[str] = None, limit: int = 15) -> NewsFeed:
+def get_news(symbol: str, company_name: str | None = None, limit: int = 15) -> NewsFeed:
     """Fetch and merge news for a company, de-duplicated by title."""
     query = company_name or symbol
     items = _from_google(f"{query} stock", limit) + _from_yahoo(symbol, limit)

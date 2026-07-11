@@ -47,6 +47,9 @@ class Config:
 
     default_market: str = "IN"
 
+    # SEC EDGAR requires a descriptive User-Agent with contact info.
+    sec_contact: str = "https://github.com/YashvantHange/Investo"
+
     @property
     def has_alphavantage(self) -> bool:
         return bool(self.alphavantage_key)
@@ -74,6 +77,8 @@ def load_config() -> Config:
         dcf_terminal_growth=_get_float("INVESTO_DCF_TERMINAL_GROWTH", 0.04),
         dcf_years=_get_int("INVESTO_DCF_YEARS", 5),
         default_market=os.getenv("INVESTO_DEFAULT_MARKET", "IN").strip().upper() or "IN",
+        sec_contact=os.getenv("INVESTO_SEC_CONTACT", "").strip()
+        or "https://github.com/YashvantHange/Investo",
     )
 
 

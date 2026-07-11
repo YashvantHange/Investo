@@ -12,7 +12,7 @@ returned alongside the result so they can be inspected and overridden.
 from __future__ import annotations
 
 from statistics import median
-from typing import Any, Optional
+from typing import Any
 
 from ..config import CONFIG
 from ..models import DCFResult, Financials, Ratios
@@ -25,7 +25,7 @@ def _clamp(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, x))
 
 
-def _base_fcf(fin: Financials, ratios: Ratios) -> Optional[float]:
+def _base_fcf(fin: Financials, ratios: Ratios) -> float | None:
     """A smoothed base free cash flow (average of available positive FCF years)."""
     fcf_series: list[float] = []
     for p in fin.cash_flow:
@@ -67,7 +67,7 @@ def _net_debt(fin: Financials, info: dict[str, Any]) -> float:
     return total_debt - cash
 
 
-def _f(v: Any) -> Optional[float]:
+def _f(v: Any) -> float | None:
     try:
         return float(v) if v is not None else None
     except (TypeError, ValueError):
@@ -76,26 +76,26 @@ def _f(v: Any) -> Optional[float]:
 
 def compute_dcf(
     symbol: str,
-    info: Optional[dict[str, Any]] = None,
-    financials: Optional[Financials] = None,
-    ratios: Optional[Ratios] = None,
+    info: dict[str, Any] | None = None,
+    financials: Financials | None = None,
+    ratios: Ratios | None = None,
     *,
-    discount_rate: Optional[float] = None,
-    terminal_growth: Optional[float] = None,
-    years: Optional[int] = None,
-    growth_rate: Optional[float] = None,
+    discount_rate: float | None = None,
+    terminal_growth: float | None = None,
+    years: int | None = None,
+    growth_rate: float | None = None,
 ) -> DCFResult:
-    from ..sources import yahoo
+    from ..sources import data
     from .ratios import compute_ratios
 
     if info is None:
-        info = yahoo.get_info(symbol)
+        info = data.get_info(symbol)
     if financials is None:
-        financials = yahoo.get_financials(symbol)
+        financials = data.get_financials(symbol)
     if ratios is None:
         ratios = compute_ratios(symbol, info=info, financials=financials)
 
-    market = yahoo.market_of_symbol(symbol, info.get("exchange"))
+    market = data.market_of_symbol(symbol, info.get("exchange"))
     stmt_ccy = info.get("financialCurrency") or info.get("currency")
     price_ccy = info.get("currency") or stmt_ccy
 
@@ -140,7 +140,7 @@ def compute_dcf(
     result.equity_value = equity_value_stmt
 
     # Convert equity value to trading currency for a per-share figure.
-    fx = yahoo.fx_rate(stmt_ccy, price_ccy)
+    fx = data.fx_rate(stmt_ccy, price_ccy)
     shares = _f(info.get("sharesOutstanding"))
     price = _f(info.get("currentPrice") or info.get("regularMarketPrice"))
     result.current_price = price

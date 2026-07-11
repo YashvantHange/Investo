@@ -1,0 +1,45 @@
+name: Publish
+
+# Publishes to PyPI (via Trusted Publishing) and attaches the .mcpb bundle to the release
+# when you publish a GitHub Release (tag like v0.1.0).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  pypi:
+    name: Build & publish to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # OIDC for PyPI Trusted Publishing (no token needed)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  mcpb:
+    name: Build & attach .mcpb bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # upload asset to the release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Pack the MCP bundle
+        run: npx -y @anthropic-ai/mcpb pack . investo.mcpb
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: investo.mcpb

@@ -8,9 +8,22 @@ version = "0.1.0"
 description = "AI investment-analysis agent (MCP server) — financials, ratios, peers, DCF, moat, risk and a 0-100 rating for NSE/BSE and global companies."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Yashvant Hange" }]
 keywords = ["mcp", "investing", "finance", "nse", "bse", "stocks", "valuation", "dcf"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Typing :: Typed",
+]
 
 dependencies = [
     "mcp[cli]>=1.2.0",
@@ -24,7 +37,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0.0"]
+dev = ["pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.10.0", "build>=1.2.0"]
 
 [project.scripts]
 investo = "investo.cli:main"
@@ -36,7 +49,28 @@ Repository = "https://github.com/YashvantHange/Investo"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/investo"]
+# Ship curated data and the typing marker inside the wheel.
+force-include = { "src/investo/data/peers.yaml" = "investo/data/peers.yaml", "src/investo/data/industry.yaml" = "investo/data/industry.yaml", "src/investo/py.typed" = "investo/py.typed" }
+
+[tool.hatch.build.targets.sdist]
+include = ["src/investo", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]  # line length handled by formatter; long strings/tables allowed
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = false
+check_untyped_defs = true
+files = ["src/investo"]

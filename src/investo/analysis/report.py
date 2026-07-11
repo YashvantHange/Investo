@@ -8,11 +8,11 @@ advantages/disadvantages, growth drivers, risks, and the rating).
 
 from __future__ import annotations
 
-from typing import Optional
+from concurrent.futures import ThreadPoolExecutor
 
 from ..models import AnalysisReport, Signal, SwotSeed
 from ..resolve import resolve
-from ..sources import yahoo
+from ..sources import data
 from ..sources.news import get_news
 from .dcf import compute_dcf
 from .industry import get_industry_intelligence, industry_outlook
@@ -33,7 +33,7 @@ _LLM_GUIDANCE = (
 )
 
 
-def _subject_share(peers, symbol: str) -> Optional[float]:
+def _subject_share(peers, symbol: str) -> float | None:
     for row in peers.peers:
         if row.ticker == symbol.upper():
             return row.market_share_proxy
@@ -92,21 +92,28 @@ def analyze(query: str, market: str = "IN") -> AnalysisReport:
         return report
 
     symbol = search.resolved.symbol
-    info = yahoo.get_info(symbol)
+    info = data.get_info(symbol)      # one network call, then cached for the rest
+    profile = data.get_profile(symbol)  # reuses cached info
 
-    profile = yahoo.get_profile(symbol)
-    financials = yahoo.get_financials(symbol)
+    # Run the independent, network-bound fetches concurrently (peers is itself parallel).
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        f_financials = pool.submit(data.get_financials, symbol)
+        f_peers = pool.submit(compare_peers, symbol)
+        f_news = pool.submit(get_news, symbol, profile.name)
+        f_esg = pool.submit(data.get_esg_score, symbol)
+        financials = f_financials.result()
+        peers = f_peers.result()
+        news = f_news.result()
+        esg = f_esg.result()
+
     ratios = compute_ratios(symbol, info=info, financials=financials)
     dcf = compute_dcf(symbol, info=info, financials=financials, ratios=ratios)
-    peers = compare_peers(symbol)
     industry = get_industry_intelligence(symbol)
     outlook, cagr = industry_outlook(symbol)
-    news = get_news(symbol, profile.name)
     management = get_management(symbol, info=info, financials=financials, ratios=ratios)
     share = _subject_share(peers, symbol)
     moat = moat_assessment(symbol, ratios=ratios, market_share_proxy=share)
     risk = risk_assessment(symbol, ratios=ratios, info=info)
-    esg = yahoo.get_esg_score(symbol)
     product_news = any(i.category == "product-ai" for i in news.items)
 
     score = compute_score(
@@ -132,6 +139,30 @@ def analyze(query: str, market: str = "IN") -> AnalysisReport:
     report.swot_seeds = _build_swot(signals, industry, risk)
     report.growth_driver_hints = _build_growth_hints(ratios, industry, news)
     report.llm_guidance = _LLM_GUIDANCE
+
+    # Degraded-mode: the source returned essentially nothing (rate-limited / delisted / unsupported).
+    if profile.name is None and profile.market_cap is None and not financials.income_statement:
+        report.warnings.append(
+            "The data source returned little or no data for this symbol — it may be rate-limited, "
+            "delisted, or unsupported. Retry shortly, or configure an API key (see the "
+            "`provider_status` tool / README 'Data sources & legal')."
+        )
+
+    # Fitness-for-purpose caveats (help the reader not misread distorted numbers).
+    if (ratios.revenue_growth_yoy is not None and ratios.revenue_growth_yoy < -0.30) or (
+        ratios.revenue_cagr_3y is not None and ratios.revenue_cagr_3y < -0.25
+    ):
+        report.warnings.append(
+            "Sharp revenue discontinuity detected — growth metrics may be distorted by a "
+            "demerger, divestiture or restructuring rather than an operating decline; check "
+            "recent news before trusting the growth score."
+        )
+    if profile.sector in {"Financial Services", "Financials", "Banks", "Insurance"}:
+        report.warnings.append(
+            "Financial-sector company: revenue-based growth and generic leverage ratios are less "
+            "meaningful here (loan/AUM growth, NIM and asset quality matter more but aren't fully "
+            "captured); weight the score accordingly."
+        )
 
     # Surface data caveats.
     if ratios.currency and profile.currency and ratios.currency != profile.currency:

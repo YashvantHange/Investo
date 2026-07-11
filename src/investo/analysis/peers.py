@@ -8,17 +8,17 @@ compare fairly against INR-reporting peers.
 
 from __future__ import annotations
 
-from typing import Optional
+from concurrent.futures import ThreadPoolExecutor
 
 from ..config import CONFIG
 from ..data import peer_groups
 from ..models import PeerComparison, PeerRow
-from ..sources import yahoo
+from ..sources import data
 
 _MAX_PEERS = 6
 
 
-def _group_for(symbol: str) -> Optional[tuple[str, dict]]:
+def _group_for(symbol: str) -> tuple[str, dict] | None:
     sym = symbol.upper()
     for key, group in peer_groups().items():
         members = [m.upper() for m in group.get("members", [])]
@@ -27,7 +27,7 @@ def _group_for(symbol: str) -> Optional[tuple[str, dict]]:
     return None
 
 
-def get_peers(symbol: str) -> tuple[list[str], Optional[dict]]:
+def get_peers(symbol: str) -> tuple[list[str], dict | None]:
     """Return (peer_symbols, group_metadata) for a ticker."""
     found = _group_for(symbol)
     if found:
@@ -44,24 +44,24 @@ def get_peers(symbol: str) -> tuple[list[str], Optional[dict]]:
     return [], None
 
 
-def _bounded(value: Optional[float], lo: float, hi: float) -> Optional[float]:
+def _bounded(value: float | None, lo: float, hi: float) -> float | None:
     if value is None:
         return None
     return value if lo < value <= hi else None
 
 
-def _peer_row(symbol: str, base_ccy: Optional[str]) -> Optional[PeerRow]:
-    info = yahoo.get_info(symbol)
+def _peer_row(symbol: str, base_ccy: str | None) -> PeerRow | None:
+    info = data.get_info(symbol)
     name = info.get("longName") or info.get("shortName")
     if not name:
         return None
 
     fin_ccy = info.get("financialCurrency") or info.get("currency")
     price_ccy = info.get("currency") or fin_ccy
-    fx_rev = yahoo.fx_rate(fin_ccy, base_ccy) or 1.0
-    fx_mcap = yahoo.fx_rate(price_ccy, base_ccy) or 1.0
+    fx_rev = data.fx_rate(fin_ccy, base_ccy) or 1.0
+    fx_mcap = data.fx_rate(price_ccy, base_ccy) or 1.0
 
-    def f(key: str) -> Optional[float]:
+    def f(key: str) -> float | None:
         v = info.get(key)
         try:
             return float(v) if v is not None else None
@@ -92,7 +92,7 @@ def _summarize(subject: str, rows: list[PeerRow]) -> list[str]:
     if subj is None:
         return out
 
-    def rank_by(attr: str, reverse: bool) -> Optional[int]:
+    def rank_by(attr: str, reverse: bool) -> int | None:
         vals = [(r.ticker, getattr(r, attr)) for r in rows if getattr(r, attr) is not None]
         if not vals or getattr(subj, attr) is None:
             return None
@@ -120,13 +120,13 @@ def _summarize(subject: str, rows: list[PeerRow]) -> list[str]:
     return out
 
 
-def _p(x: Optional[float]) -> str:
+def _p(x: float | None) -> str:
     return f"{x:.1%}" if x is not None else "n/a"
 
 
 def compare_peers(symbol: str, max_peers: int = _MAX_PEERS) -> PeerComparison:
     """Build a peer comparison table for *symbol* (must be a resolved ticker)."""
-    info = yahoo.get_info(symbol)
+    info = data.get_info(symbol)
     base_ccy = info.get("currency") or info.get("financialCurrency")
     sector = info.get("sector")
 
@@ -138,11 +138,10 @@ def compare_peers(symbol: str, max_peers: int = _MAX_PEERS) -> PeerComparison:
         )
 
     symbols = [symbol.upper()] + [p.upper() for p in peers[:max_peers]]
-    rows: list[PeerRow] = []
-    for sym in symbols:
-        row = _peer_row(sym, base_ccy)
-        if row is not None:
-            rows.append(row)
+    # Fetch peer rows concurrently — each is an independent, blocking network call.
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        fetched = list(pool.map(lambda sym: _peer_row(sym, base_ccy), symbols))
+    rows: list[PeerRow] = [row for row in fetched if row is not None]
 
     # Market-share proxy from normalized revenue.
     total_rev = sum(r.revenue_ttm for r in rows if r.revenue_ttm is not None)

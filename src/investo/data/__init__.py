@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +11,7 @@ import yaml
 _DATA_DIR = Path(__file__).resolve().parent
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load_yaml(filename: str) -> dict[str, Any]:
     path = _DATA_DIR / filename
     try:

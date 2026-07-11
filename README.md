@@ -1,6 +1,13 @@
 # Investo 📈
 
+[![CI](https://github.com/YashvantHange/Investo/actions/workflows/ci.yml/badge.svg)](https://github.com/YashvantHange/Investo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![MCP](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io)
+
 **An AI investment-analysis agent you run from Claude or Cursor.**
+
+> ⚠️ **Research and education only — not investment advice.**
 
 Give Investo a company name — Indian (NSE/BSE) or global — and it gathers public financial
 data and produces a full analysis: what the company does, its financials & ratios, a
@@ -90,7 +97,16 @@ introduce itself as **Investo**.
 
 **Claude Desktop** — it doesn't run from the project folder, so give the **absolute** path to
 `scripts/mcp_launcher.py` (see `examples/claude_desktop_config.json`). You still don't hardcode
-a Python path — the launcher locates the venv for you.
+a Python path — the launcher locates the venv for you. Or install the one-click **`.mcpb`
+bundle** (`scripts/build_mcpb.sh`).
+
+**Zero-clone install (once published to PyPI)** — no repo, no venv:
+
+```json
+{ "mcpServers": { "investo": { "command": "uvx", "args": ["--from", "investo", "investo-mcp"] } } }
+```
+
+See [`PUBLISHING.md`](PUBLISHING.md) for PyPI / `.mcpb` / MCP-registry release steps.
 
 Then ask: *"Analyse Infosys"*, *"Compare HDFC Bank with its peers"*, *"What's the DCF value
 of Reliance?"*
@@ -123,17 +139,39 @@ of Reliance?"*
 
 ---
 
-## Data & limitations
+## Data sources & legal
 
-Investo uses **public** data and is for **research/education only — not investment advice**.
+Investo prefers **licensed** data when you configure a key, and falls back to free Yahoo data
+otherwise:
 
-- **Yahoo Finance** is the primary source (covers NSE/BSE + global). It can rate-limit or omit
-  fields; tools degrade gracefully and return what's available.
-- **Promoter/insider shareholding** for NSE/BSE has no clean free API — this is best-effort in
-  v1 and often unavailable for Indian names (enhance later via a keyed API / BSE shareholding
-  pattern).
-- **Industry CAGR / market share** are curated/estimated, not live.
+- **With an API key** (`ALPHAVANTAGE_API_KEY` / `FMP_API_KEY` / `FINNHUB_API_KEY`): licensed
+  fundamentals are used as the **primary** source and take precedence for the fields they cover
+  (recommended for production / commercial use).
+- **Without a key** (default, zero-config): Yahoo Finance is used via `yfinance`, which relies on
+  Yahoo's **public but unofficial** endpoints. This is best-effort, may be rate-limited, and is
+  subject to Yahoo's terms of service. For **NSE/BSE** fundamentals Yahoo remains the practical
+  source of record even when a key is set, because the licensed APIs' India coverage is limited.
+
+The provider in effect is reported by the `provider_status` in tool output. See
+[`SECURITY.md`](SECURITY.md) for the full list of endpoints Investo contacts.
+
+### Privacy — what leaves your machine
+
+Only the **company name or ticker** you ask about is sent to the data endpoints above. Investo
+has **no telemetry**, stores no personal data, and reads API keys only from environment
+variables (never logged). It is read-only and does not modify your system.
+
+### Known limitations
+
+- **Promoter/insider shareholding** for NSE/BSE has no clean free API — best-effort, often
+  unavailable for Indian names.
+- **Industry CAGR / market share** are curated/estimated (`data/*.yaml`), not live.
 - **Peer lists** start curated for major Indian sectors and are extensible via `data/peers.yaml`.
+- Sharp reporting discontinuities (e.g. a demerger) can distort growth; Investo flags a warning
+  when it detects one, but read the note in context.
+
+> ⚠️ **Investo is for research and education only — not investment advice.** Do your own
+> due diligence.
 
 ---
 

@@ -7,10 +7,10 @@ data-informed hints for the host LLM to expand.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from ..models import Ratios, RiskSignals
-from ..sources import yahoo
+from ..sources import data
 from .scoring import score_risk
 
 # Export-heavy Indian sectors carry USD/INR translation exposure.
@@ -28,13 +28,13 @@ _REGULATORY_BY_SECTOR = {
 
 def risk_assessment(
     symbol: str,
-    ratios: Optional[Ratios] = None,
-    info: Optional[dict[str, Any]] = None,
+    ratios: Ratios | None = None,
+    info: dict[str, Any] | None = None,
 ) -> RiskSignals:
     from .ratios import compute_ratios
 
     if info is None:
-        info = yahoo.get_info(symbol)
+        info = data.get_info(symbol)
     if ratios is None:
         ratios = compute_ratios(symbol, info=info)
 
