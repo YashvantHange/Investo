@@ -27,7 +27,11 @@ for _name in ("yfinance", "yfinance.data", "yfinance.utils", "peewee"):
 for _name in ("httpx", "httpcore"):
     logging.getLogger(_name).setLevel(logging.WARNING)
 
+from ..config import CONFIG  # noqa: E402
 from ..models import CompanyProfile, FinancialPeriod, Financials, TickerCandidate  # noqa: E402
+from . import ratelimit  # noqa: E402
+
+_log = logging.getLogger("investo.sources.yahoo")
 
 _YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
 _HTTP_HEADERS = {
@@ -99,6 +103,7 @@ def market_of_symbol(symbol: str, exchange: str | None = None) -> str:
 def search(query: str, limit: int = 10) -> list[TickerCandidate]:
     """Query the Yahoo search endpoint and return ranked ticker candidates."""
     params: dict[str, Any] = {"q": query, "quotesCount": limit, "newsCount": 0, "listsCount": 0}
+    ratelimit.wait("yahoo", CONFIG.yahoo_min_interval)
     try:
         with httpx.Client(timeout=10.0, headers=_HTTP_HEADERS) as client:
             resp = client.get(_YAHOO_SEARCH_URL, params=params)
@@ -141,6 +146,8 @@ def get_info(symbol: str) -> dict[str, Any]:
     cached = _cache_get(_INFO_CACHE, key, _CACHE_TTL)
     if cached is not _MISSING:
         return cached
+    _log.debug("info cache miss for %s; fetching", key)
+    ratelimit.wait("yahoo", CONFIG.yahoo_min_interval)
     info: dict[str, Any] = {}
     try:
         t = _ticker(symbol)

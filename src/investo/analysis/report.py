@@ -8,6 +8,9 @@ advantages/disadvantages, growth drivers, risks, and the rating).
 
 from __future__ import annotations
 
+import logging
+import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 from ..models import AnalysisReport, Signal, SwotSeed
@@ -22,6 +25,8 @@ from .peers import compare_peers
 from .ratios import compute_ratios
 from .risk import risk_assessment
 from .scoring import compute_score
+
+_log = logging.getLogger("investo.analysis.report")
 
 _LLM_GUIDANCE = (
     "You are Investo. Using ONLY the structured evidence in this report (do not invent "
@@ -81,7 +86,18 @@ def _build_growth_hints(ratios, industry, news) -> list[str]:
     return hints
 
 
-def analyze(query: str, market: str = "IN") -> AnalysisReport:
+ProgressFn = Callable[[int, int, str], None]
+
+
+def _noop_progress(current: int, total: int, message: str) -> None:
+    pass
+
+
+def analyze(query: str, market: str = "IN", progress: ProgressFn | None = None) -> AnalysisReport:
+    report_progress = progress or _noop_progress
+    started = time.monotonic()
+    report_progress(0, 5, "Resolving company")
+
     search = resolve(query, market)
     report = AnalysisReport(query=query, resolved=search.resolved)
     if search.note:
@@ -89,11 +105,14 @@ def analyze(query: str, market: str = "IN") -> AnalysisReport:
     if search.resolved is None:
         report.warnings.append("Could not resolve the company to a ticker.")
         report.llm_guidance = "Ask the user for a ticker (e.g. INFY.NS) or a clearer company name."
+        _log.info("analyze(%r): unresolved", query)
         return report
 
     symbol = search.resolved.symbol
+    _log.info("analyze(%r) -> %s", query, symbol)
     info = data.get_info(symbol)      # one network call, then cached for the rest
     profile = data.get_profile(symbol)  # reuses cached info
+    report_progress(1, 5, f"Fetching financials, peers & news for {symbol}")
 
     # Run the independent, network-bound fetches concurrently (peers is itself parallel).
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -106,6 +125,7 @@ def analyze(query: str, market: str = "IN") -> AnalysisReport:
         news = f_news.result()
         esg = f_esg.result()
 
+    report_progress(2, 5, "Computing ratios, DCF, moat & risk")
     ratios = compute_ratios(symbol, info=info, financials=financials)
     dcf = compute_dcf(symbol, info=info, financials=financials, ratios=ratios)
     industry = get_industry_intelligence(symbol)
@@ -116,6 +136,7 @@ def analyze(query: str, market: str = "IN") -> AnalysisReport:
     risk = risk_assessment(symbol, ratios=ratios, info=info)
     product_news = any(i.category == "product-ai" for i in news.items)
 
+    report_progress(3, 5, "Scoring")
     score = compute_score(
         symbol, ratios,
         dcf=dcf, sector=profile.sector, market_share_proxy=share,
@@ -176,4 +197,9 @@ def analyze(query: str, market: str = "IN") -> AnalysisReport:
         report.warnings.append(peers.note or "No peer comparison available.")
     if management.note:
         report.warnings.append(management.note)
+
+    elapsed = time.monotonic() - started
+    report_progress(5, 5, "Done")
+    _log.info("analyze(%s) done in %.1fs (score=%s)", symbol, elapsed,
+              report.score.total if report.score else "n/a")
     return report

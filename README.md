@@ -139,6 +139,20 @@ of Reliance?"*
 
 ---
 
+## Configuration
+
+All optional — set as environment variables (or in `.env`; see `.env.example`):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `ALPHAVANTAGE_API_KEY` / `FMP_API_KEY` / `FINNHUB_API_KEY` | Licensed data (primary when set) | — |
+| `INVESTO_LOG_LEVEL` | Log verbosity **to stderr** (DEBUG/INFO/WARNING/ERROR) | `WARNING` |
+| `INVESTO_RATE_MIN_INTERVAL` | Min seconds between Yahoo calls | `0.0` |
+| `INVESTO_AV_DAILY_CAP` | Alpha Vantage daily cap before Yahoo fallback | `25` |
+| `INVESTO_SEC_CONTACT` | Contact for the SEC EDGAR User-Agent | repo URL |
+| `INVESTO_DEFAULT_MARKET` | `IN` or `US` | `IN` |
+| `INVESTO_DCF_*` | DCF discount / terminal / years overrides | see `.env.example` |
+
 ## Data sources & legal
 
 Investo prefers **licensed** data when you configure a key, and falls back to free Yahoo data

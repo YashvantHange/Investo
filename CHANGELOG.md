@@ -7,6 +7,16 @@ All notable changes to Investo are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Rate limiting** (`sources/ratelimit.py`): per-provider minimum call interval + an Alpha
+  Vantage daily cap that falls back to Yahoo when exhausted; tunable via
+  `INVESTO_RATE_MIN_INTERVAL` / `INVESTO_AV_DAILY_CAP`.
+- **Application logging** to **stderr** (stdout stays clean for MCP JSON-RPC), controlled by
+  `INVESTO_LOG_LEVEL`; logs tool calls, provider selection, timings and rate-limit events.
+- **Stronger input validation**: `market`/`period` are enums and `get_news` `limit` is bounded
+  (1–50) in the tool JSON schemas; company name/ticker is sanitized (non-empty, length-capped).
+- **Progress notifications** during `analyze_company` (runs off the event loop; emits
+  resolve → fetch → compute → score → done).
+- Typed `SecFacts` / `ProviderStatus` models so **all 15 tools expose a precise output schema**.
 - **Provider facade** (`sources/data.py`): licensed keyed APIs (Alpha Vantage / FMP) are the
   primary source when a key is set, with Yahoo Finance as the zero-config fallback; a
   `provider_status` tool reports the active mode.

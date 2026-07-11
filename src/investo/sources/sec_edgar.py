@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from ..config import CONFIG
+from ..models import SecFact, SecFacts
 
 # SEC requires a descriptive User-Agent with contact info (set INVESTO_SEC_CONTACT to your
 # email for production use; defaults to the project URL).
@@ -48,11 +49,11 @@ def _resolve_cik(ticker_or_cik: str) -> int | None:
     return _load_ticker_map().get(base)
 
 
-def get_sec_facts(ticker_or_cik: str, concepts: list[str] | None = None) -> dict[str, Any]:
+def get_sec_facts(ticker_or_cik: str, concepts: list[str] | None = None) -> SecFacts:
     """Return selected US-GAAP facts (latest values) for a US-listed company/ADR."""
     cik = _resolve_cik(ticker_or_cik)
     if cik is None:
-        return {"error": f"No SEC CIK found for '{ticker_or_cik}' (US-listed companies / ADRs only)."}
+        return SecFacts(error=f"No SEC CIK found for '{ticker_or_cik}' (US-listed companies / ADRs only).")
     wanted = concepts or ["Revenues", "NetIncomeLoss", "Assets", "Liabilities", "StockholdersEquity"]
     try:
         with httpx.Client(timeout=20.0, headers=_HEADERS) as client:
@@ -60,10 +61,10 @@ def get_sec_facts(ticker_or_cik: str, concepts: list[str] | None = None) -> dict
             resp.raise_for_status()
             facts = resp.json()
     except Exception as exc:
-        return {"error": f"SEC EDGAR request failed: {exc}"}
+        return SecFacts(cik=cik, error=f"SEC EDGAR request failed: {exc}")
 
     gaap = (facts.get("facts", {}) or {}).get("us-gaap", {})
-    out: dict[str, Any] = {"cik": cik, "entity": facts.get("entityName")}
+    result = SecFacts(cik=cik, entity=facts.get("entityName"))
     for concept in wanted:
         node = gaap.get(concept)
         if not node:
@@ -72,6 +73,6 @@ def get_sec_facts(ticker_or_cik: str, concepts: list[str] | None = None) -> dict
         series: list[dict[str, Any]] = units.get("USD") or next(iter(units.values()), [])
         if series:
             latest = sorted(series, key=lambda x: x.get("end", ""))[-1]
-            out[concept] = {"value": latest.get("value"), "end": latest.get("end"),
-                            "form": latest.get("form")}
-    return out
+            result.facts.append(SecFact(concept=concept, value=latest.get("value"),
+                                        end=latest.get("end"), form=latest.get("form")))
+    return result

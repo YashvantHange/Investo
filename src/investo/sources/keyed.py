@@ -6,11 +6,15 @@ so the rest of Investo works without any keys.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
 
 from ..config import CONFIG
+from . import ratelimit
+
+_log = logging.getLogger("investo.sources.keyed")
 
 
 def finnhub_peers(symbol: str) -> list[str]:
@@ -18,6 +22,7 @@ def finnhub_peers(symbol: str) -> list[str]:
     if not CONFIG.has_finnhub:
         return []
     base = symbol.split(".")[0]  # Finnhub uses bare US-style symbols
+    ratelimit.wait("finnhub", CONFIG.finnhub_min_interval)
     try:
         with httpx.Client(timeout=10.0) as client:
             resp = client.get(
@@ -35,6 +40,10 @@ def alphavantage_overview(symbol: str) -> dict[str, Any]:
     """Alpha Vantage company overview (fundamentals). Empty without a key."""
     if not CONFIG.has_alphavantage:
         return {}
+    if not ratelimit.allow_daily("alphavantage", CONFIG.av_daily_cap):
+        _log.warning("Alpha Vantage daily cap (%d) reached; falling back to Yahoo.", CONFIG.av_daily_cap)
+        return {}
+    ratelimit.wait("alphavantage", CONFIG.av_min_interval)
     base = symbol.split(".")[0]
     try:
         with httpx.Client(timeout=15.0) as client:
@@ -53,6 +62,7 @@ def fmp_profile(symbol: str) -> dict[str, Any]:
     """Financial Modeling Prep company profile. Empty without a key."""
     if not CONFIG.has_fmp:
         return {}
+    ratelimit.wait("fmp", CONFIG.fmp_min_interval)
     base = symbol.split(".")[0]
     try:
         with httpx.Client(timeout=15.0) as client:

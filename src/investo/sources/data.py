@@ -12,12 +12,15 @@ disclosure live in one place.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
 from ..config import CONFIG
 from ..models import CompanyProfile
 from . import keyed, yahoo
+
+_log = logging.getLogger("investo.sources.data")
 
 # Re-export the calls that are Yahoo-sourced regardless of keys.
 search = yahoo.search
@@ -51,6 +54,9 @@ def get_info(symbol: str) -> dict[str, Any]:
     overlay = keyed.overview_as_info(symbol)
     if overlay:
         base.update(overlay)  # licensed values take precedence for the fields they cover
+        _log.info("%s: using %s fundamentals overlaid on Yahoo", symbol, overlay.get("_source", "keyed"))
+    else:
+        _log.debug("%s: Yahoo fundamentals (no keyed overlay)", symbol)
     _MERGED_CACHE[key] = (time.monotonic(), base)
     return base
 

@@ -237,6 +237,8 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
         except (AttributeError, ValueError):
             pass
+    from .logging_config import configure_logging
+    configure_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

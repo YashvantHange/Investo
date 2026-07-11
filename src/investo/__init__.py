@@ -7,4 +7,9 @@ economic moat, risk, management, news, SWOT seeds and a 0-100 investment rating.
 Primary focus: Indian companies listed on NSE (.NS) and BSE (.BO); also supports US/global.
 """
 
+import logging
+
+# Library logger stays silent until an entry point calls configure_logging().
+logging.getLogger("investo").addHandler(logging.NullHandler())
+
 __version__ = "0.1.0"

@@ -30,7 +30,12 @@ Investo sends **no telemetry, no analytics, and no personal data**. It does not 
   execute shell commands, or modify your system. All tools are annotated `readOnlyHint: true`.
 - Tool inputs are used only as query/ticker parameters to the endpoints above (URL-encoded);
   there is no `eval`, no dynamic import of user input, and no code execution path from inputs.
-- Every tool is wrapped so failures return a structured `{"error": ...}` instead of crashing.
+- Tool failures surface as MCP `isError` results rather than crashing the server.
+- **Logging goes to stderr only** (never stdout, which carries the MCP JSON-RPC protocol), at
+  the level set by `INVESTO_LOG_LEVEL` (default `WARNING`). Logs record tickers, provider
+  selection and timings — **no API keys or personal data are ever logged.**
+- Outbound calls are **rate-limited** per provider (min-interval + Alpha Vantage daily cap) to
+  respect provider limits.
 
 ## Data source terms & accuracy
 

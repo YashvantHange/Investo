@@ -317,3 +317,29 @@ class AnalysisReport(_Base):
     growth_driver_hints: list[str] = Field(default_factory=list)
     llm_guidance: str | None = None
     warnings: list[str] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------------------
+# Provider status & SEC facts (typed so every tool exposes a precise output schema)
+# --------------------------------------------------------------------------------------
+class ProviderStatus(_Base):
+    primary_when_available: str
+    fallback: str
+    alphavantage: bool
+    fmp: bool
+    finnhub: bool
+    note: str | None = None
+
+
+class SecFact(_Base):
+    concept: str
+    value: float | None = None
+    end: str | None = None
+    form: str | None = None
+
+
+class SecFacts(_Base):
+    cik: int | None = None
+    entity: str | None = None
+    facts: list[SecFact] = Field(default_factory=list)
+    error: str | None = None

@@ -50,6 +50,16 @@ class Config:
     # SEC EDGAR requires a descriptive User-Agent with contact info.
     sec_contact: str = "https://github.com/YashvantHange/Investo"
 
+    # Rate limiting (seconds between calls / daily caps per provider).
+    yahoo_min_interval: float = 0.0   # polite gap for Yahoo calls (0 = off by default)
+    av_min_interval: float = 12.0     # Alpha Vantage free tier ~5/min
+    av_daily_cap: int = 25            # Alpha Vantage free tier 25/day
+    fmp_min_interval: float = 0.3
+    finnhub_min_interval: float = 1.0
+
+    # Logging
+    log_level: str = "WARNING"
+
     @property
     def has_alphavantage(self) -> bool:
         return bool(self.alphavantage_key)
@@ -79,6 +89,9 @@ def load_config() -> Config:
         default_market=os.getenv("INVESTO_DEFAULT_MARKET", "IN").strip().upper() or "IN",
         sec_contact=os.getenv("INVESTO_SEC_CONTACT", "").strip()
         or "https://github.com/YashvantHange/Investo",
+        yahoo_min_interval=_get_float("INVESTO_RATE_MIN_INTERVAL", 0.0),
+        av_daily_cap=_get_int("INVESTO_AV_DAILY_CAP", 25),
+        log_level=(os.getenv("INVESTO_LOG_LEVEL", "WARNING").strip().upper() or "WARNING"),
     )
 
 
