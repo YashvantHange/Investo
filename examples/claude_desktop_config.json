@@ -1,14 +1,13 @@
 {
   "//": "Claude Desktop: merge into claude_desktop_config.json (Settings > Developer > Edit Config).",
-  "//note": "Claude Desktop does NOT run from the project folder, so give the ABSOLUTE path to",
-  "//note2": "scripts/mcp_launcher.py in YOUR clone. The launcher finds the project's .venv itself,",
-  "//note3": "so you do NOT hardcode a Python path. Run `python -m venv .venv && pip install -e .` first.",
-  "//windows-example": "C:/Users/<you>/Investo/scripts/mcp_launcher.py",
-  "//macos-linux-example": "/Users/<you>/Investo/scripts/mcp_launcher.py",
+  "//note": "RECOMMENDED (works anywhere, no clone / no venv): uses `uvx` to build & run Investo",
+  "//note2": "straight from GitHub. Requires `uv` installed (https://docs.astral.sh/uv/).",
   "mcpServers": {
     "investo": {
-      "command": "python",
-      "args": ["/ABSOLUTE/PATH/TO/Investo/scripts/mcp_launcher.py"]
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/YashvantHange/Investo", "investo-mcp"]
     }
-  }
+  },
+  "//alternative": "From-source (no uv): clone + `pip install -e .` in a .venv, then command `python`",
+  "//alternative2": "with args [\"<ABSOLUTE>/scripts/mcp_launcher.py\"] (the launcher finds the venv)."
 }

@@ -94,30 +94,25 @@ python -m venv .venv
 load the `investo` server (approve on first use); the included `CLAUDE.md` makes the agent
 introduce itself as **Investo**.
 
-**Cursor** — Investo is published in the **[Cursor Directory](https://cursor.directory)**.
-One-click install:
+**Cursor** — Investo is in the **[Cursor Directory](https://cursor.directory)**. One-click
+install (requires [`uv`](https://docs.astral.sh/uv/) — the Python equivalent of `npx`):
 
-[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=investo&config=eyJjb21tYW5kIjogInB5dGhvbiIsICJhcmdzIjogWyJzY3JpcHRzL21jcF9sYXVuY2hlci5weSJdfQ==)
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=investo&config=eyJjb21tYW5kIjogInV2eCIsICJhcmdzIjogWyItLWZyb20iLCAiZ2l0K2h0dHBzOi8vZ2l0aHViLmNvbS9ZYXNodmFudEhhbmdlL0ludmVzdG8iLCAiaW52ZXN0by1tY3AiXX0=)
 
-Or add it manually — copy `examples/cursor_mcp.json` to `.cursor/mcp.json` (project) with:
-
-```json
-{ "command": "python", "args": ["scripts/mcp_launcher.py"] }
-```
-
-(run `pip install -e .` in a `.venv` first — the launcher finds it. For a **global**
-`~/.cursor/mcp.json`, use the absolute path to `scripts/mcp_launcher.py`.)
-
-**Claude Desktop** — it doesn't run from the project folder, so give the **absolute** path to
-`scripts/mcp_launcher.py` (see `examples/claude_desktop_config.json`). You still don't hardcode
-a Python path — the launcher locates the venv for you. Or install the one-click **`.mcpb`
-bundle** (`scripts/build_mcpb.sh`).
-
-**Zero-clone install (once published to PyPI)** — no repo, no venv:
+Or add manually to `.cursor/mcp.json` (project) **or** `~/.cursor/mcp.json` (global) — both work:
 
 ```json
-{ "mcpServers": { "investo": { "command": "uvx", "args": ["--from", "investo", "investo-mcp"] } } }
+{ "command": "uvx", "args": ["--from", "git+https://github.com/YashvantHange/Investo", "investo-mcp"] }
 ```
+
+`uvx` builds & runs Investo straight from GitHub — **no clone, no venv, works from any folder.**
+
+**Claude Desktop** — use the same `uvx` config (see `examples/claude_desktop_config.json`), or
+install the one-click **`.mcpb` bundle** (`scripts/build_mcpb.sh`).
+
+**From source (no `uv`)** — clone, `python -m venv .venv && pip install -e .`, then point the
+MCP config at the launcher: `{ "command": "python", "args": ["<ABSOLUTE>/scripts/mcp_launcher.py"] }`
+(the launcher finds the venv itself). This is what a project-scoped `.mcp.json` uses.
 
 See [`PUBLISHING.md`](PUBLISHING.md) for PyPI / `.mcpb` / MCP-registry release steps.
 

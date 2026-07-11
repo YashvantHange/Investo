@@ -19,7 +19,7 @@
     "entry_point": "src/investo/server.py",
     "mcp_config": {
       "command": "uvx",
-      "args": ["--from", "investo", "investo-mcp"],
+      "args": ["--from", "git+https://github.com/YashvantHange/Investo", "investo-mcp"],
       "env": {
         "ALPHAVANTAGE_API_KEY": "${user_config.alphavantage_api_key}",
         "FMP_API_KEY": "${user_config.fmp_api_key}",

@@ -7,8 +7,11 @@ All notable changes to Investo are documented here. The format follows
 ## [Unreleased]
 
 ### Added
-- **Listed in the [Cursor Directory](https://cursor.directory)** — one-click "Add to Cursor"
-  install (config: `python scripts/mcp_launcher.py`); badge + install section in the README.
+- **Listed in the [Cursor Directory](https://cursor.directory)** with a one-click "Add to Cursor"
+  install. The recommended config is now **`uvx --from git+…/Investo investo-mcp`** — it builds
+  & runs Investo straight from GitHub with **no clone and no venv** (requires `uv`), so it works
+  from a global config for any user. The `python scripts/mcp_launcher.py` launcher remains the
+  from-source option for project-scoped setups. Verified end-to-end via an MCP stdio handshake.
 - **Rate limiting** (`sources/ratelimit.py`): per-provider minimum call interval + an Alpha
   Vantage daily cap that falls back to Yahoo when exhausted; tunable via
   `INVESTO_RATE_MIN_INTERVAL` / `INVESTO_AV_DAILY_CAP`.
