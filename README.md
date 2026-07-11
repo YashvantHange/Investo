@@ -4,8 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io)
+[![Cursor Directory](https://img.shields.io/badge/Cursor-listed-000000.svg)](https://cursor.directory)
 
 **An AI investment-analysis agent you run from Claude or Cursor.**
+
+> ✅ Investo is **listed in the [Cursor Directory](https://cursor.directory)** — one-click install below.
 
 > ⚠️ **Research and education only — not investment advice.**
 
@@ -93,7 +96,19 @@ python -m venv .venv
 load the `investo` server (approve on first use); the included `CLAUDE.md` makes the agent
 introduce itself as **Investo**.
 
-**Cursor** — copy `examples/cursor_mcp.json` to `.cursor/mcp.json` (same portable launcher).
+**Cursor** — Investo is published in the **[Cursor Directory](https://cursor.directory)**.
+One-click install:
+
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=investo&config=eyJjb21tYW5kIjogInB5dGhvbiIsICJhcmdzIjogWyJzY3JpcHRzL21jcF9sYXVuY2hlci5weSJdfQ==)
+
+Or add it manually — copy `examples/cursor_mcp.json` to `.cursor/mcp.json` (project) with:
+
+```json
+{ "command": "python", "args": ["scripts/mcp_launcher.py"] }
+```
+
+(run `pip install -e .` in a `.venv` first — the launcher finds it. For a **global**
+`~/.cursor/mcp.json`, use the absolute path to `scripts/mcp_launcher.py`.)
 
 **Claude Desktop** — it doesn't run from the project folder, so give the **absolute** path to
 `scripts/mcp_launcher.py` (see `examples/claude_desktop_config.json`). You still don't hardcode
