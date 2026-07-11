@@ -7,6 +7,8 @@ All notable changes to Investo are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Listed in the [Cursor Directory](https://cursor.directory)** — one-click "Add to Cursor"
+  install (config: `python scripts/mcp_launcher.py`); badge + install section in the README.
 - **Rate limiting** (`sources/ratelimit.py`): per-provider minimum call interval + an Alpha
   Vantage daily cap that falls back to Yahoo when exhausted; tunable via
   `INVESTO_RATE_MIN_INTERVAL` / `INVESTO_AV_DAILY_CAP`.
