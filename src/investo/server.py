@@ -22,6 +22,7 @@ from pydantic import Field
 
 from .models import (
     AnalysisReport,
+    BuffettChecklist,
     CompanyProfile,
     DCFResult,
     Financials,
@@ -208,6 +209,16 @@ def score_company(ticker: str, market: Market = "IN") -> Score:
         market_share_proxy=share, industry_outlook=outlook, industry_cagr_hint=cagr,
         esg_total=data.get_esg_score(symbol),
     )
+
+
+@mcp.tool(title="Buffett checklist", annotations=_READ)
+def buffett_checklist(ticker: str, market: Market = "IN") -> BuffettChecklist:
+    """Warren Buffett–style quality checklist: a weighted 0-100 fit score with per-criterion
+    pass/warn/fail, the reasoning, a derived confidence and a multi-year trend. This is a separate
+    lens and does not change the 0-100 investment score.
+    """
+    from .analysis.buffett import buffett_checklist as _bc
+    return _bc(_symbol(ticker, market))
 
 
 @mcp.tool(title="Relative to industry", annotations=_READ)
