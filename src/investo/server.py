@@ -33,6 +33,7 @@ from .models import (
     PeerComparison,
     ProviderStatus,
     Ratios,
+    RedFlagReport,
     RelativeComparison,
     RiskSignals,
     Score,
@@ -209,6 +210,15 @@ def score_company(ticker: str, market: Market = "IN") -> Score:
         market_share_proxy=share, industry_outlook=outlook, industry_cagr_hint=cagr,
         esg_total=data.get_esg_score(symbol),
     )
+
+
+@mcp.tool(title="Red flags", annotations=_READ)
+def red_flags(ticker: str, market: Market = "IN") -> RedFlagReport:
+    """Automated deterioration warnings (revenue up/profit down, rising debt, negative cash flow,
+    margin compression, thin coverage/liquidity, promoter pledge) with an overall risk level.
+    """
+    from .analysis.redflags import detect_red_flags
+    return detect_red_flags(_symbol(ticker, market))
 
 
 @mcp.tool(title="Buffett checklist", annotations=_READ)
