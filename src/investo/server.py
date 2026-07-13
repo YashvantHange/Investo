@@ -41,6 +41,7 @@ from .models import (
     Score,
     SearchResult,
     SecFacts,
+    ShareholdingPattern,
 )
 from .resolve import resolve, resolve_ticker
 
@@ -212,6 +213,16 @@ def score_company(ticker: str, market: Market = "IN") -> Score:
         market_share_proxy=share, industry_outlook=outlook, industry_cagr_hint=cagr,
         esg_total=data.get_esg_score(symbol),
     )
+
+
+@mcp.tool(title="Shareholding pattern", annotations=_READ)
+def shareholding_pattern(ticker: str, market: Market = "IN") -> ShareholdingPattern:
+    """Ownership split (promoter / FII / DII / public + promoter pledge) with quarter-over-quarter
+    smart observations and an overall ownership signal. Uses NSE/BSE filings for Indian names,
+    falling back to Yahoo's coarse insider/institutional snapshot.
+    """
+    from .analysis.ownership import shareholding_pattern as _sp
+    return _sp(_symbol(ticker, market))
 
 
 @mcp.tool(title="Investment thesis", annotations=_READ)
