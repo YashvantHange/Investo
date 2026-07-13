@@ -17,24 +17,55 @@ from ..models import AnalysisReport, Signal, SwotSeed
 from ..resolve import resolve
 from ..sources import data
 from ..sources.news import get_news
+from . import evidence as ev
+from .buffett import buffett_checklist
 from .dcf import compute_dcf
+from .growth import growth_outlook
 from .industry import get_industry_intelligence, industry_outlook
 from .management import get_management
 from .moat import moat_assessment
+from .ownership import shareholding_pattern
 from .peers import compare_peers
 from .ratios import compute_ratios
+from .redflags import detect_red_flags
+from .relative import relative_comparison
 from .risk import risk_assessment
 from .scoring import compute_score
+from .thesis import build_ai_signals, build_thesis
+from .trends import fundamental_trend
 
 _log = logging.getLogger("investo.analysis.report")
 
 _LLM_GUIDANCE = (
-    "You are Investo. Using ONLY the structured evidence in this report (do not invent "
-    "numbers), write: (1) what the company does and its sector/sub-domains; (2) a competitor "
-    "comparison from `peers`; (3) a SWOT built from `swot_seeds`; (4) advantages and "
-    "disadvantages from `signals`; (5) growth drivers from `growth_driver_hints`; (6) key "
-    "risks from `risk`; then (7) present the rating `score.total`/100 with its bucket table "
-    "and the DCF. Close with a one-line reminder that this is research, not investment advice."
+    "You are Investo. Produce a PROFESSIONAL, ANALYST-GRADE report in clean, well-formatted "
+    "Markdown using ONLY the structured evidence here — never invent numbers. Use headed "
+    "sections, tables, and ✓/⚠/✗ markers; keep it scannable. Order:\n"
+    "1. HEADER: name, ticker, price, market cap, 52w range.\n"
+    "2. INVESTMENT THESIS (lead with `thesis`): the one-line `verdict`, `summary`, then a "
+    "Pros vs Cons table from `thesis.pros`/`thesis.cons`. Show `thesis.quality` and "
+    "`thesis.valuation_stance`.\n"
+    "3. RATING: `score.total`/100 (`score.verdict`) with the bucket table.\n"
+    "4. RELATIVE TO INDUSTRY (`relative`): a table of company vs industry(median) + the "
+    "percentile band for each metric.\n"
+    "5. WARREN BUFFETT CHECKLIST (`buffett`): the weighted `weighted_score`/100 and `verdict`, "
+    "then a table of each criterion — status (✓ pass / ⚠ warn / ✗ fail / — unknown), the "
+    "`reason`, the `confidence.tier`, and the `trend_verdict` where present.\n"
+    "6. SHAREHOLDING (`shareholding`): the latest promoter/FII/DII/public split and pledge, the "
+    "quarter-over-quarter `observations`, and the `ownership_signal`; note the source (exchange "
+    "filing vs Yahoo snapshot).\n"
+    "7. GROWTH ENGINE — NEXT 5 YEARS (`growth_outlook`): the `primary_engine`, a ranked table of "
+    "`drivers` (name, ~contribution %, confidence, key risks), the `catalysts` timeline "
+    "(year → event), the blended 5y band and `growth_signal`.\n"
+    "8. FUNDAMENTALS TREND (`fundamental_trend`): a compact table per metric with the ⬆/➡/⬇ "
+    "`directions` and `health` grade, and the `overall_health`.\n"
+    "9. RED FLAGS (`red_flags`): the `risk_level` and each flag with its severity; say so "
+    "explicitly if none.\n"
+    "10. WHAT IT DOES, competitor comparison (`peers`), SWOT (`swot_seeds`), key risks (`risk`), "
+    "and the DCF (respect any low-confidence note).\n"
+    "11. ANALYSIS QUALITY FOOTER (`evidence`): overall confidence (score + tier), data coverage, "
+    "source count, latest data date (`as_of`), and any `missing_fields`.\n"
+    "Surface confidence and provenance wherever the evidence provides them so the reader can "
+    "judge reliability. Close with one line: research/education only, not investment advice."
 )
 
 
@@ -86,6 +117,22 @@ def _build_growth_hints(ratios, industry, news) -> list[str]:
     return hints
 
 
+def _growth_hints_from_outlook(growth, ratios, industry, news) -> list[str]:
+    """Prefer the ranked growth-engine drivers; fall back to the legacy hint builder."""
+    hints: list[str] = []
+    if growth is not None and growth.primary_engine:
+        hints.append(f"Primary engine: {growth.primary_engine}")
+    if growth is not None and growth.drivers:
+        for d in growth.drivers[:4]:
+            share = f" (~{d.contribution_pct:.0%})" if d.contribution_pct is not None else ""
+            hints.append(f"{d.name}{share}")
+    # Always include the news/CAGR-derived hints so nothing is lost.
+    for h in _build_growth_hints(ratios, industry, news):
+        if h not in hints:
+            hints.append(h)
+    return hints
+
+
 ProgressFn = Callable[[int, int, str], None]
 
 
@@ -115,15 +162,17 @@ def analyze(query: str, market: str = "IN", progress: ProgressFn | None = None) 
     report_progress(1, 5, f"Fetching financials, peers & news for {symbol}")
 
     # Run the independent, network-bound fetches concurrently (peers is itself parallel).
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         f_financials = pool.submit(data.get_financials, symbol)
         f_peers = pool.submit(compare_peers, symbol)
         f_news = pool.submit(get_news, symbol, profile.name)
         f_esg = pool.submit(data.get_esg_score, symbol)
+        f_shareholding = pool.submit(shareholding_pattern, symbol, info=info)
         financials = f_financials.result()
         peers = f_peers.result()
         news = f_news.result()
         esg = f_esg.result()
+        shareholding = f_shareholding.result()
 
     report_progress(2, 5, "Computing ratios, DCF, moat & risk")
     ratios = compute_ratios(symbol, info=info, financials=financials)
@@ -145,6 +194,35 @@ def analyze(query: str, market: str = "IN", progress: ProgressFn | None = None) 
         product_news=product_news, esg_total=esg,
     )
 
+    report_progress(4, 5, "Buffett checklist, relative metrics, red flags & thesis")
+    # Analyst-grade evidence layer. Each reuses data already fetched above (no extra network),
+    # and each degrades gracefully to a mostly-empty result rather than raising.
+    relative = relative_comparison(symbol, peers, ratios)
+    buffett = buffett_checklist(
+        symbol, ratios=ratios, dcf=dcf, moat=moat, management=management,
+        financials=financials, info=info, sector=profile.sector,
+    )
+    growth = growth_outlook(
+        symbol, ratios=ratios, info=info, industry=industry, sector=profile.sector,
+        payout_ratio=management.dividend_payout_ratio,
+    )
+    trend = fundamental_trend(symbol, financials=financials)
+    red_flags = detect_red_flags(
+        symbol, ratios=ratios, financials=financials, info=info, shareholding=shareholding,
+    )
+    thesis = build_thesis(
+        symbol, score=score, ratios=ratios, buffett=buffett, red_flags=red_flags,
+        relative=relative, dcf=dcf, shareholding=shareholding, growth=growth,
+    )
+    ai_signals = build_ai_signals(
+        symbol, thesis=thesis, red_flags=red_flags, shareholding=shareholding, growth=growth,
+    )
+    overall_evidence = ev.aggregate(
+        [relative.evidence, buffett.evidence, growth.evidence, trend.evidence,
+         shareholding.evidence, red_flags.evidence, thesis.evidence],
+        notes=["Overall analysis quality blended across modules."],
+    )
+
     signals = _build_signals(score)
     report.profile = profile
     report.ratios = ratios
@@ -156,9 +234,18 @@ def analyze(query: str, market: str = "IN", progress: ProgressFn | None = None) 
     report.moat = moat
     report.risk = risk
     report.score = score
+    report.relative = relative
+    report.buffett = buffett
+    report.growth_outlook = growth
+    report.fundamental_trend = trend
+    report.shareholding = shareholding
+    report.red_flags = red_flags
+    report.thesis = thesis
+    report.ai_signals = ai_signals
+    report.evidence = overall_evidence
     report.signals = signals
     report.swot_seeds = _build_swot(signals, industry, risk)
-    report.growth_driver_hints = _build_growth_hints(ratios, industry, news)
+    report.growth_driver_hints = _growth_hints_from_outlook(growth, ratios, industry, news)
     report.llm_guidance = _LLM_GUIDANCE
 
     # Degraded-mode: the source returned essentially nothing (rate-limited / delisted / unsupported).
