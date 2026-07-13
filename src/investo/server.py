@@ -32,6 +32,7 @@ from .models import (
     PeerComparison,
     ProviderStatus,
     Ratios,
+    RelativeComparison,
     RiskSignals,
     Score,
     SearchResult,
@@ -209,6 +210,19 @@ def score_company(ticker: str, market: Market = "IN") -> Score:
     )
 
 
+@mcp.tool(title="Relative to industry", annotations=_READ)
+def relative_metrics(ticker: str, market: Market = "IN") -> RelativeComparison:
+    """Key metrics vs the peer-set median (an industry proxy), with favourable-side percentiles
+    so a high percentile always reads as 'better' (ROE, margins, growth, P/E, P/B, D/E).
+    """
+    from .analysis.peers import compare_peers as _compare
+    from .analysis.ratios import compute_ratios
+    from .analysis.relative import relative_comparison
+
+    symbol = _symbol(ticker, market)
+    return relative_comparison(symbol, _compare(symbol), compute_ratios(symbol))
+
+
 @mcp.tool(title="Full analysis", annotations=_READ)
 async def analyze_company(query: str, market: Market = "IN", ctx: Context | None = None) -> AnalysisReport:
     """Full investment analysis for a company name or ticker.
@@ -251,8 +265,16 @@ def main() -> None:
     """Console-script entry point: run the MCP server over stdio."""
     from .logging_config import configure_logging
     configure_logging()
-    _log.info("Investo MCP server starting (stdio); %d tools", 15)
+    _log.info("Investo MCP server starting (stdio); %d tools", _tool_count())
     mcp.run()
+
+
+def _tool_count() -> int:
+    """Number of registered tools (best-effort; for the startup log only)."""
+    try:
+        return len(mcp._tool_manager._tools)  # type: ignore[attr-defined]
+    except Exception:  # pragma: no cover - private API, never fail startup over a log line
+        return 0
 
 
 if __name__ == "__main__":
