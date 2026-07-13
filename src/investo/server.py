@@ -21,12 +21,14 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from .models import (
+    AiSignals,
     AnalysisReport,
     BuffettChecklist,
     CompanyProfile,
     DCFResult,
     Financials,
     IndustryIntelligence,
+    InvestmentThesis,
     Management,
     MoatSignals,
     NewsFeed,
@@ -210,6 +212,26 @@ def score_company(ticker: str, market: Market = "IN") -> Score:
         market_share_proxy=share, industry_outlook=outlook, industry_cagr_hint=cagr,
         esg_total=data.get_esg_score(symbol),
     )
+
+
+@mcp.tool(title="Investment thesis", annotations=_READ)
+def investment_thesis(ticker: str, market: Market = "IN") -> InvestmentThesis:
+    """Synthesized pros/cons, an overall quality grade, a valuation stance and a one-line verdict
+    (e.g. 'High Quality, Fairly Expensive'). Summarizes the full analysis without re-deriving numbers.
+    """
+    from .analysis.report import analyze
+    report = analyze(ticker, market)
+    return report.thesis or InvestmentThesis(ticker=_symbol(ticker, market))
+
+
+@mcp.tool(title="AI signals digest", annotations=_READ)
+def ai_signals(ticker: str, market: Market = "IN") -> AiSignals:
+    """Compact machine-consumable digest (thesis, quality, confidence, ownership/growth signals,
+    risk level, valuation stance, red flags) for other AI agents to consume headlessly.
+    """
+    from .analysis.report import analyze
+    report = analyze(ticker, market)
+    return report.ai_signals or AiSignals(ticker=_symbol(ticker, market))
 
 
 @mcp.tool(title="Red flags", annotations=_READ)
