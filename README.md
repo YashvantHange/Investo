@@ -8,6 +8,8 @@
 
 **An AI investment-analysis agent you run from Claude or Cursor.**
 
+> ⚠️ **Research and education only — not investment advice.**
+
 Give Investo a company name — Indian (NSE/BSE) or global — and it gathers public financial
 data and produces a full analysis: what the company does, its financials & ratios, a
 competitor comparison, DCF intrinsic value, economic moat, risks, management, recent news,
@@ -38,6 +40,20 @@ For any company, Investo supplies the evidence for:
 8. **Economic moat** — brand / network / cost / scale / switching-cost signals.
 9. **Risk analysis** — debt, currency, concentration, regulation, tech obsolescence.
 10. **Rating out of 100** — a balanced 11-bucket score with per-bucket rationale.
+11. **Warren Buffett checklist** — a weighted 0–100 quality-fit score; each criterion (ROE, ROIC,
+    debt, owner earnings, margin of safety, management, moat) shows value vs threshold, a
+    pass/warn/fail with the *reason*, a confidence, and its multi-year trend.
+12. **Relative to industry** — key metrics vs the peer-set median with favourable-side percentiles.
+13. **Shareholding pattern** — promoter/FII/DII/public split + promoter pledge, with
+    quarter-over-quarter smart observations and an ownership signal (NSE/BSE filings; Yahoo fallback).
+14. **5-year growth engine** — the primary engine plus ranked drivers (estimated contribution %,
+    per-driver risks), a catalyst timeline, and a blended growth band.
+15. **Fundamentals trend, red-flags, and an investment thesis** — multi-year health at a glance,
+    automated deterioration warnings, and a synthesized pros/cons verdict.
+
+Every section carries a **confidence score, provenance and reasoning** (the evidence layer), so an
+AI agent — or you — can judge how far to trust each conclusion. A machine-readable `ai_signals`
+digest and a self-contained **HTML one-pager** (`--html`) are available too.
 
 ### Rating buckets (out of 100)
 
@@ -74,6 +90,7 @@ investo analyze "Infosys"
 investo analyze "Reliance Industries"
 investo analyze "Tata Motors"
 investo analyze AAPL
+investo analyze "Reliance Industries" --html reliance.html   # self-contained analyst one-pager
 investo search "tata motors"
 ```
 
@@ -140,7 +157,15 @@ of Reliance?"*
 | `moat_assessment` | Economic-moat signals + heuristic score |
 | `risk_assessment` | Risk signals + heuristic score |
 | `score_company` | 0–100 composite rating |
-| `analyze_company` | Everything above bundled into one report |
+| `buffett_checklist` | Warren-Buffett quality checklist: weighted 0–100 fit, per-criterion pass/warn/fail + reason, confidence & multi-year trend |
+| `relative_metrics` | Key metrics vs the peer-set median (industry proxy) with favourable-side percentiles |
+| `shareholding_pattern` | Promoter/FII/DII/public split + pledge, QoQ smart observations & ownership signal (NSE/BSE filings, Yahoo fallback) |
+| `growth_outlook` | 5-year growth engine: ranked drivers (contribution %, risks), catalyst timeline, blended growth band |
+| `fundamental_trend` | Multi-year revenue/profit/margin/EPS/ROE with per-year direction & health grade |
+| `red_flags` | Automated deterioration warnings + overall risk level |
+| `investment_thesis` | Synthesized pros/cons, quality grade, valuation stance & one-line verdict |
+| `ai_signals` | Compact machine-readable digest (thesis, quality, confidence, ownership/growth signals, risk, valuation) |
+| `analyze_company` | Everything above bundled into one report (with a confidence/provenance evidence layer) |
 | `get_sec_facts` | SEC EDGAR cross-check (US/ADR only) |
 
 ---
@@ -156,6 +181,7 @@ All optional — set as environment variables (or in `.env`; see `.env.example`)
 | `INVESTO_RATE_MIN_INTERVAL` | Min seconds between Yahoo calls | `0.0` |
 | `INVESTO_AV_DAILY_CAP` | Alpha Vantage daily cap before Yahoo fallback | `25` |
 | `INVESTO_SEC_CONTACT` | Contact for the SEC EDGAR User-Agent | repo URL |
+| `INVESTO_ENABLE_INDIA_HOLDINGS` | Fetch NSE/BSE shareholding filings (else Yahoo fallback) | `true` |
 | `INVESTO_DEFAULT_MARKET` | `IN` or `US` | `IN` |
 | `INVESTO_DCF_*` | DCF discount / terminal / years overrides | see `.env.example` |
 

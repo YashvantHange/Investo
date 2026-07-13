@@ -49,6 +49,26 @@ def _bar(normalized: float, width: int = 10) -> str:
     return "█" * filled + "·" * (width - filled)
 
 
+_STATUS_GLYPH = {"pass": "✓", "warn": "⚠", "fail": "✗", "unknown": "—"}
+_ARROW = {"up": "⬆", "flat": "➡", "down": "⬇"}
+
+
+def _conf(confidence) -> str:
+    """Render a Confidence as e.g. '92% High'."""
+    if confidence is None:
+        return "n/a"
+    return f"{confidence.score:.0%} {confidence.tier}"
+
+
+def _metric(name: str, value: float | None) -> str:
+    """Format a relative-comparison value: ratios as x.x, everything else as a percent."""
+    if value is None:
+        return "n/a"
+    if name in {"P/E", "P/B", "Debt/Equity"}:
+        return f"{value:.1f}"
+    return f"{value:.1%}"
+
+
 # --------------------------------------------------------------------------------------
 # Report renderer
 # --------------------------------------------------------------------------------------
@@ -69,12 +89,106 @@ def render_report(r: AnalysisReport) -> str:
         summary = p.business_summary
         out.append("\n" + (summary[:400] + ("…" if len(summary) > 400 else "")))
 
+    # Investment thesis (lead with the synthesis)
+    th = r.thesis
+    if th:
+        title = f"INVESTMENT THESIS — {th.verdict}" if th.verdict else "INVESTMENT THESIS"
+        out.append(_rule(title))
+        if th.summary:
+            out.append(f"  {th.summary}")
+        if th.confidence:
+            out.append(f"  Confidence: {_conf(th.confidence)}")
+        if th.pros:
+            out.append("  \033[1mPros\033[0m")
+            for pro in th.pros:
+                out.append(f"    + {pro}")
+        if th.cons:
+            out.append("  \033[1mCons\033[0m")
+            for con in th.cons:
+                out.append(f"    − {con}")
+
     # Rating
     s = r.score
     if s:
         out.append(_rule(f"RATING: {s.total}/100  —  {s.verdict}"))
         for b in s.buckets:
             out.append(f"  {b.name:18} {_bar(b.normalized)} {b.score:5.1f}/{b.weight:<4.0f} {b.rationale}")
+
+    # Relative to industry
+    rel = r.relative
+    if rel and rel.metrics:
+        out.append(_rule("RELATIVE TO INDUSTRY"))
+        out.append(f"  {'Metric':18}{'Company':>10}{'Industry':>10}   Standing")
+        for m in rel.metrics:
+            band = "top quartile" if (m.percentile or 0) >= 0.75 else \
+                   "above median" if (m.percentile or 0) >= 0.5 else \
+                   "below median" if (m.percentile or 0) >= 0.25 else "bottom quartile"
+            out.append(f"  {m.name:18}{_metric(m.name, m.company):>10}"
+                       f"{_metric(m.name, m.industry):>10}   {band}")
+
+    # Buffett checklist
+    bf = r.buffett
+    if bf and bf.criteria:
+        head = f"BUFFETT CHECKLIST: {bf.weighted_score}/100"
+        if bf.verdict:
+            head += f"  —  {bf.verdict}"
+        out.append(_rule(head))
+        for crit in bf.criteria:
+            glyph = _STATUS_GLYPH.get(crit.status, "—")
+            trend = f"  [{crit.trend_verdict}]" if crit.trend_verdict else ""
+            out.append(f"  {glyph} {crit.name:26} {_conf(crit.confidence):>9}  {crit.reason}{trend}")
+
+    # Shareholding pattern
+    sh = r.shareholding
+    if sh and sh.latest:
+        sig = f"  —  ownership: {sh.ownership_signal}" if sh.ownership_signal else ""
+        out.append(_rule(f"SHAREHOLDING ({sh.source}){sig}"))
+        lt = sh.latest
+        split = [(lbl, val) for lbl, val in (
+            ("Promoter", lt.promoter), ("FII", lt.fii), ("DII", lt.dii),
+            ("Institutional", lt.institutional), ("Public", lt.public),
+            ("Pledge", lt.promoter_pledge)) if val is not None]
+        if split:
+            out.append("  " + "   ".join(f"{lbl} {val:.1%}" for lbl, val in split))
+        for o in sh.observations:
+            out.append(f"    • {o}")
+        if sh.note:
+            out.append(f"    ({sh.note})")
+
+    # Growth engine (next 5 years)
+    g = r.growth_outlook
+    if g and g.drivers:
+        band = ""
+        if g.blended_5y_low is not None and g.blended_5y_high is not None:
+            band = f"  ({g.blended_5y_low:.0%}–{g.blended_5y_high:.0%} blended)"
+        out.append(_rule(f"GROWTH ENGINE — 5Y: {g.growth_signal or 'n/a'}{band}"))
+        if g.primary_engine:
+            out.append(f"  Primary: {g.primary_engine}")
+        for drv in g.drivers:
+            share = f"{drv.contribution_pct:.0%}" if drv.contribution_pct is not None else " — "
+            risks = f"  risks: {', '.join(drv.risks[:2])}" if drv.risks else ""
+            out.append(f"    {drv.rank}. {drv.name:24} {share:>5}{risks}")
+        if g.catalysts:
+            cats = "  ".join(f"{c.year}: {c.event}" for c in g.catalysts if c.event)
+            out.append(f"  Catalysts: {cats}")
+
+    # Fundamentals trend (health at a glance)
+    ft = r.fundamental_trend
+    if ft and ft.metrics:
+        out.append(_rule(f"FUNDAMENTALS TREND — overall: {ft.overall_health or 'n/a'}"))
+        for mt in ft.metrics:
+            arrows = "".join(_ARROW.get(step, "·") for step in mt.directions)
+            cagr = f"{mt.cagr:+.1%}" if mt.cagr is not None else "n/a"
+            out.append(f"  {mt.name:12} {arrows:6} {mt.health or '':10} CAGR {cagr}")
+
+    # Red flags
+    rf = r.red_flags
+    if rf:
+        out.append(_rule(f"RED FLAGS — risk level: {rf.risk_level}"))
+        if not rf.flags:
+            out.append("  ✓ No material red flags detected.")
+        for flag in rf.flags:
+            out.append(f"  ⚠ [{flag.severity:8}] {flag.issue} — {flag.detail}")
 
     # Valuation / DCF
     d = r.dcf
@@ -150,6 +264,20 @@ def render_report(r: AnalysisReport) -> str:
         for w in r.warnings:
             out.append(f"  ! {w}")
 
+    # Analysis quality footer — transparency for downstream judgement.
+    em = r.evidence
+    if em and em.confidence:
+        out.append(_rule("ANALYSIS QUALITY"))
+        parts = [f"Confidence {em.confidence.score:.0%} ({em.confidence.tier})"]
+        if em.data_coverage is not None:
+            parts.append(f"Coverage {em.data_coverage:.0%}")
+        parts.append(f"Sources {em.source_count}")
+        if em.as_of:
+            parts.append(f"As of {em.as_of}")
+        out.append("  " + "  ·  ".join(parts))
+        if em.missing_fields:
+            out.append(f"  Missing: {', '.join(em.missing_fields)}")
+
     out.append("\n\033[2mResearch only — not investment advice. Data: public sources (Yahoo Finance).\033[0m")
     return "\n".join(out)
 
@@ -160,6 +288,12 @@ def render_report(r: AnalysisReport) -> str:
 def _cmd_analyze(args: argparse.Namespace) -> int:
     from .analysis.report import analyze
     report = analyze(args.query, args.market)
+    if getattr(args, "html", None):
+        from .analysis.report_html import render_html
+        with open(args.html, "w", encoding="utf-8") as fh:
+            fh.write(render_html(report))
+        print(f"Wrote HTML report to {args.html}")
+        return 0
     if args.json:
         print(json.dumps(report.model_dump(), indent=2, default=str))
     else:
@@ -209,6 +343,7 @@ def build_parser() -> argparse.ArgumentParser:
     pa = sub.add_parser("analyze", help="Full investment analysis")
     pa.add_argument("query", help="Company name or ticker")
     pa.add_argument("--json", action="store_true", help="Emit raw JSON")
+    pa.add_argument("--html", metavar="FILE", help="Write a self-contained HTML report to FILE")
     _add_market(pa)
     pa.set_defaults(func=_cmd_analyze)
 
