@@ -27,6 +27,8 @@ from .models import (
     CompanyProfile,
     DCFResult,
     Financials,
+    FundamentalTrend,
+    GrowthOutlook,
     IndustryIntelligence,
     InvestmentThesis,
     Management,
@@ -213,6 +215,25 @@ def score_company(ticker: str, market: Market = "IN") -> Score:
         market_share_proxy=share, industry_outlook=outlook, industry_cagr_hint=cagr,
         esg_total=data.get_esg_score(symbol),
     )
+
+
+@mcp.tool(title="Growth engine (5-year)", annotations=_READ)
+def growth_outlook(ticker: str, market: Market = "IN") -> GrowthOutlook:
+    """The company's main growth engine for the next ~5 years: ranked drivers with estimated
+    contribution %, per-driver risks, a catalyst timeline, and a blended growth band (sustainable
+    growth, historical CAGR, analyst and industry estimates). Curated where available, else derived.
+    """
+    from .analysis.growth import growth_outlook as _go
+    return _go(_symbol(ticker, market))
+
+
+@mcp.tool(title="Fundamentals trend", annotations=_READ)
+def fundamental_trend(ticker: str, market: Market = "IN") -> FundamentalTrend:
+    """Multi-year trend of revenue, profit, margins, EPS and ROE with per-year direction and a
+    qualitative health grade per metric — shows consistency at a glance.
+    """
+    from .analysis.trends import fundamental_trend as _ft
+    return _ft(_symbol(ticker, market))
 
 
 @mcp.tool(title="Shareholding pattern", annotations=_READ)

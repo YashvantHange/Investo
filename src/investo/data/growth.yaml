@@ -1,0 +1,162 @@
+# Curated 5-year growth engines, India-first. Two maps:
+#   by_ticker  -> company-specific engine (most precise; NSE symbols)
+#   by_sector  -> generic per-Yahoo-sector fallback when a ticker isn't curated
+#
+# Each entry:
+#   primary_engine : one-line headline of what drives the next ~5 years
+#   drivers        : ranked list; contribution is an ESTIMATED share of forward growth (0-1,
+#                    should roughly sum to 1). Each may carry its own risks.
+#   catalysts      : forward timeline of expected events {year, event}
+#   risks          : engine-level key risks
+# All figures are curated estimates (labelled as such downstream via provenance + confidence),
+# not company guidance. Extend freely.
+
+by_ticker:
+  RELIANCE.NS:
+    primary_engine: "Digital (Jio) + Retail + New Energy, funded by the O2C cash engine"
+    drivers:
+      - name: Digital Services (Jio)
+        detail: "Subscriber + ARPU growth, Jio IPO value unlock, home broadband & enterprise"
+        contribution_pct: 0.40
+        risks: [Tariff regulation, Capex intensity, Competitive pricing]
+      - name: Retail expansion
+        detail: "Store additions, digital commerce (JioMart), consumer brands"
+        contribution_pct: 0.30
+        risks: [Execution at scale, Quick-commerce competition, Margin pressure]
+      - name: New Energy (green)
+        detail: "Solar, batteries, green hydrogen giga-factories"
+        contribution_pct: 0.20
+        risks: [Long gestation, Technology/execution risk, Policy dependence]
+      - name: O2C / Oil & Gas
+        detail: "Refining & petchem cash flow funding the transition"
+        contribution_pct: 0.10
+        risks: [Crude & refining-margin cycles, Energy transition demand]
+    catalysts:
+      - {year: 2026, event: "Jio IPO / value unlock"}
+      - {year: 2027, event: "New Energy giga-factories ramp (solar, cells)"}
+      - {year: 2028, event: "Green hydrogen pilot to commercial"}
+      - {year: 2029, event: "Retail digital/omnichannel scale-up"}
+    risks: [Capital intensity across all three engines, Execution/timelines, Regulation]
+
+  INFY.NS:
+    primary_engine: "Enterprise digital + AI/GenAI-led services and cost-takeout deals"
+    drivers:
+      - name: AI / GenAI services
+        detail: "GenAI-led transformation, Topaz platform, productivity deals"
+        contribution_pct: 0.35
+        risks: [AI compressing linear headcount revenue, Pricing]
+      - name: Digital transformation
+        detail: "Cloud migration, data engineering, experience"
+        contribution_pct: 0.35
+        risks: [Discretionary spend cuts, US/EU budgets]
+      - name: Cost-optimization / vendor consolidation
+        detail: "Large deals in slowdowns as clients cut costs"
+        contribution_pct: 0.30
+        risks: [Deal pricing, Competition]
+    catalysts:
+      - {year: 2026, event: "GenAI deal monetization scales"}
+      - {year: 2027, event: "Recovery in US/EU discretionary IT spend"}
+    risks: [US/EU IT budget cycles, AI disrupting the linear model, USD/INR, Attrition]
+
+by_sector:
+  Technology:
+    primary_engine: "Enterprise digitization + cloud + AI/GenAI-led services"
+    drivers:
+      - name: Digital & cloud transformation
+        detail: "Cloud migration, data, product engineering"
+        contribution_pct: 0.5
+        risks: [Discretionary spend cuts, Currency]
+      - name: AI / GenAI adoption
+        detail: "GenAI productivity and platform deals"
+        contribution_pct: 0.3
+        risks: [AI disrupting linear headcount revenue]
+      - name: Global capability centers
+        detail: "Offshoring / GCC expansion in India"
+        contribution_pct: 0.2
+        risks: [Wage inflation, Visa policy]
+    risks: [IT budget cycles, USD/INR, Attrition, AI model disruption]
+
+  Financial Services:
+    primary_engine: "Under-penetrated credit + financialization of savings"
+    drivers:
+      - name: Retail & MSME credit growth
+        detail: "Loan book expansion on low credit penetration"
+        contribution_pct: 0.5
+        risks: [Credit/NPA cycles, Rate cycles]
+      - name: Fee & wealth income
+        detail: "Cards, insurance, wealth, asset management"
+        contribution_pct: 0.3
+        risks: [Market cycles, Regulation]
+      - name: Digital / UPI-led acquisition
+        detail: "Lower-cost customer acquisition and cross-sell"
+        contribution_pct: 0.2
+        risks: [Fintech competition, Tech spend]
+    risks: [Credit cycles, RBI regulation, NIM compression, Deposit competition]
+
+  Healthcare:
+    primary_engine: "Generics/specialty exports + rising domestic healthcare spend"
+    drivers:
+      - name: Specialty & complex generics
+        detail: "Higher-value US/EU filings and launches"
+        contribution_pct: 0.4
+        risks: [USFDA inspections, Price erosion]
+      - name: Domestic formulations
+        detail: "Branded domestic growth with rising incomes"
+        contribution_pct: 0.35
+        risks: [NPPA pricing controls]
+      - name: CDMO / CRAMS & China+1
+        detail: "Outsourced manufacturing and API supply shift"
+        contribution_pct: 0.25
+        risks: [Client concentration, Capex]
+    risks: [USFDA compliance, US price erosion, Currency, R&D productivity]
+
+  Energy:
+    primary_engine: "Energy demand + refining/petchem cycle, with a green-energy pivot"
+    drivers:
+      - name: Refining & marketing
+        detail: "Throughput and refining margins"
+        contribution_pct: 0.45
+        risks: [Crude & margin cycles]
+      - name: Petrochemicals
+        detail: "Polymer/chemical demand and spreads"
+        contribution_pct: 0.3
+        risks: [Petchem down-cycles]
+      - name: Renewables / new energy
+        detail: "Solar, hydrogen and clean-energy investment"
+        contribution_pct: 0.25
+        risks: [Long gestation, Policy, Execution]
+    risks: [Crude-price volatility, Regulated pricing, Energy-transition disruption, Heavy capex]
+
+  Consumer Defensive:
+    primary_engine: "Volume growth + premiumization + distribution expansion"
+    drivers:
+      - name: Volume & distribution
+        detail: "Rural recovery and reach expansion"
+        contribution_pct: 0.5
+        risks: [Rural demand weakness]
+      - name: Premiumization / mix
+        detail: "Trading up and higher-margin products"
+        contribution_pct: 0.3
+        risks: [Slow premium adoption]
+      - name: New categories / D2C
+        detail: "Adjacencies and digital-first brands"
+        contribution_pct: 0.2
+        risks: [Private-label competition]
+    risks: [Input-cost inflation, Rural demand, D2C/private-label competition]
+
+  Consumer Cyclical:
+    primary_engine: "Discretionary recovery + premiumization + organized-retail shift"
+    drivers:
+      - name: Volume recovery
+        detail: "Rising incomes and discretionary demand"
+        contribution_pct: 0.45
+        risks: [Demand cyclicality]
+      - name: Premiumization / EV transition
+        detail: "Mix upgrade and electrification"
+        contribution_pct: 0.35
+        risks: [EV execution, Competition]
+      - name: Organized-retail / omnichannel
+        detail: "Formalization and channel shift"
+        contribution_pct: 0.2
+        risks: [Execution, Margins]
+    risks: [Demand cycles, Input costs, Competition, EV transition execution]

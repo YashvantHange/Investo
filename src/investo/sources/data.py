@@ -27,6 +27,7 @@ search = yahoo.search
 get_financials = yahoo.get_financials
 fx_rate = yahoo.fx_rate
 get_esg_score = yahoo.get_esg_score
+get_growth_estimates = yahoo.get_growth_estimates
 get_news_raw = yahoo.get_news_raw
 get_holders = yahoo.get_holders
 market_of_symbol = yahoo.market_of_symbol

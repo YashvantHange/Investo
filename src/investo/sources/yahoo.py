@@ -325,6 +325,32 @@ def fx_rate(from_ccy: str | None, to_ccy: str | None) -> float | None:
     return rate
 
 
+def get_growth_estimates(symbol: str) -> dict[str, float | None]:
+    """Best-effort forward growth estimates (fractions), from ``info`` then analyst estimates.
+
+    Returns ``{"earnings_growth": .., "revenue_growth": .., "next_year_earnings": ..}`` with
+    ``None`` for anything unavailable. Never raises.
+    """
+    out: dict[str, float | None] = {
+        "earnings_growth": None, "revenue_growth": None, "next_year_earnings": None,
+    }
+    info = get_info(symbol)
+    out["earnings_growth"] = _to_float(info.get("earningsGrowth"))
+    out["revenue_growth"] = _to_float(info.get("revenueGrowth"))
+    try:
+        est = _ticker(symbol).growth_estimates
+        if est is not None and not getattr(est, "empty", True):
+            # yfinance exposes a 'stockTrend'/'+1y' style frame; pull a next-year row if present.
+            for label in ("+1y", "0y", "nextYear"):
+                if label in getattr(est, "index", []):
+                    col = est.columns[0]
+                    out["next_year_earnings"] = _to_float(est.at[label, col])
+                    break
+    except Exception:
+        pass
+    return out
+
+
 def get_esg_score(symbol: str) -> float | None:
     """Return the total ESG (sustainability) score if available, else None."""
     try:

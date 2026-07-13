@@ -50,7 +50,7 @@ Repository = "https://github.com/YashvantHange/Investo"
 [tool.hatch.build.targets.wheel]
 packages = ["src/investo"]
 # Ship curated data and the typing marker inside the wheel.
-force-include = { "src/investo/data/peers.yaml" = "investo/data/peers.yaml", "src/investo/data/industry.yaml" = "investo/data/industry.yaml", "src/investo/py.typed" = "investo/py.typed" }
+force-include = { "src/investo/data/peers.yaml" = "investo/data/peers.yaml", "src/investo/data/industry.yaml" = "investo/data/industry.yaml", "src/investo/data/growth.yaml" = "investo/data/growth.yaml", "src/investo/py.typed" = "investo/py.typed" }
 
 [tool.hatch.build.targets.sdist]
 include = ["src/investo", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
