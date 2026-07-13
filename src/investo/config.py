@@ -30,6 +30,13 @@ def _get_int(name: str, default: int) -> int:
         return default
 
 
+def _get_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class Config:
     """Effective configuration derived from the environment."""
@@ -56,6 +63,11 @@ class Config:
     av_daily_cap: int = 25            # Alpha Vantage free tier 25/day
     fmp_min_interval: float = 0.3
     finnhub_min_interval: float = 1.0
+
+    # India shareholding source (NSE/BSE filings). On by default; can be disabled to force the
+    # Yahoo fallback (e.g. offline / tests / when the exchange endpoints are unreliable).
+    enable_india_holdings: bool = True
+    india_holdings_min_interval: float = 1.0  # polite gap between NSE/BSE calls
 
     # Logging
     log_level: str = "WARNING"
@@ -91,6 +103,8 @@ def load_config() -> Config:
         or "https://github.com/YashvantHange/Investo",
         yahoo_min_interval=_get_float("INVESTO_RATE_MIN_INTERVAL", 0.0),
         av_daily_cap=_get_int("INVESTO_AV_DAILY_CAP", 25),
+        enable_india_holdings=_get_bool("INVESTO_ENABLE_INDIA_HOLDINGS", True),
+        india_holdings_min_interval=_get_float("INVESTO_INDIA_HOLDINGS_MIN_INTERVAL", 1.0),
         log_level=(os.getenv("INVESTO_LOG_LEVEL", "WARNING").strip().upper() or "WARNING"),
     )
 
