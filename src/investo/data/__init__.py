@@ -28,3 +28,9 @@ def peer_groups() -> dict[str, Any]:
 
 def industry_notes() -> dict[str, Any]:
     return _load_yaml("industry.yaml").get("sectors", {})
+
+
+def growth_engines() -> dict[str, Any]:
+    """Curated 5-year growth engines: ``{'by_ticker': {...}, 'by_sector': {...}}``."""
+    data = _load_yaml("growth.yaml")
+    return {"by_ticker": data.get("by_ticker", {}), "by_sector": data.get("by_sector", {})}
