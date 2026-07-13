@@ -17,6 +17,42 @@ class _Base(BaseModel):
 
 
 # --------------------------------------------------------------------------------------
+# Evidence layer — provenance, confidence and per-module quality metadata.
+# Attached across the analysis modules so downstream agents can judge reliability
+# (see analysis/evidence.py for the deterministic confidence formula).
+# --------------------------------------------------------------------------------------
+ConfidenceTier = Literal["High", "Medium", "Low"]
+
+
+class Provenance(_Base):
+    """Where a figure came from, and for what period."""
+
+    source: str  # e.g. "Yahoo Finance", "NSE Shareholding Filing", "Annual Reports", "Curated"
+    detail: str | None = None  # e.g. "FY21-FY25", "trailing 12m"
+    as_of: str | None = None  # ISO date / period label of the underlying data
+
+
+class Confidence(_Base):
+    """Derived reliability of a figure or judgment (never asserted, always computed)."""
+
+    score: float  # 0..1
+    tier: ConfidenceTier
+    reason: str | None = None  # why this confidence, in plain language
+
+
+class EvidenceMeta(_Base):
+    """Per-module transparency block: how complete/reliable this section is."""
+
+    confidence: Confidence | None = None
+    data_coverage: float | None = None  # 0..1 fraction of expected fields present
+    sources: list[Provenance] = Field(default_factory=list)
+    source_count: int = 0
+    missing_fields: list[str] = Field(default_factory=list)
+    as_of: str | None = None  # latest underlying data date
+    notes: list[str] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------------------
 # Identity / search
 # --------------------------------------------------------------------------------------
 class TickerCandidate(_Base):
@@ -277,6 +313,215 @@ class Score(_Base):
 
 
 # --------------------------------------------------------------------------------------
+# Relative-to-industry comparison
+# --------------------------------------------------------------------------------------
+class RelativeMetric(_Base):
+    name: str
+    company: float | None = None
+    industry: float | None = None  # peer-set median (industry proxy)
+    percentile: float | None = None  # 0..1 rank within the peer set
+    better: bool | None = None  # is the company on the favourable side of the median?
+    delta: float | None = None  # company - industry
+    higher_is_better: bool = True
+    provenance: Provenance | None = None
+
+
+class RelativeComparison(_Base):
+    ticker: str
+    metrics: list[RelativeMetric] = Field(default_factory=list)
+    peer_count: int = 0
+    summary: list[str] = Field(default_factory=list)
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+# --------------------------------------------------------------------------------------
+# Warren Buffett checklist
+# --------------------------------------------------------------------------------------
+CriterionStatus = Literal["pass", "warn", "fail", "unknown"]
+
+
+class TrendPoint(_Base):
+    period: str
+    value: float | None = None
+
+
+class BuffettCriterion(_Base):
+    name: str
+    weight: float  # contribution to the weighted /100 score
+    value: float | None = None
+    threshold: str  # human-readable rule, e.g. "ROE > 15%"
+    status: CriterionStatus = "unknown"
+    reason: str | None = None  # the WHY
+    confidence: Confidence | None = None
+    provenance: Provenance | None = None
+    trend: list[TrendPoint] = Field(default_factory=list)  # newest-first historical values
+    trend_verdict: str | None = None  # e.g. "Consistently Excellent"
+
+
+class BuffettChecklist(_Base):
+    ticker: str
+    criteria: list[BuffettCriterion] = Field(default_factory=list)
+    weighted_score: float | None = None  # 0..100 (weights of applicable criteria renormalized)
+    passed_count: int = 0
+    applicable_count: int = 0
+    verdict: str | None = None  # e.g. "Strong Buffett fit"
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+# --------------------------------------------------------------------------------------
+# Shareholding pattern (ownership)
+# --------------------------------------------------------------------------------------
+OwnershipSignal = Literal["bullish", "positive", "neutral", "cautious", "bearish"]
+
+
+class HolderBreakdown(_Base):
+    """One quarter's ownership split (percentages as fractions of 1.0)."""
+
+    period: str  # e.g. "2026-03-31" or "current (Yahoo)"
+    promoter: float | None = None
+    fii: float | None = None  # foreign institutional
+    dii: float | None = None  # domestic institutional
+    institutional: float | None = None  # combined, when FII/DII not separated
+    public: float | None = None
+    retail: float | None = None
+    promoter_pledge: float | None = None
+    provenance: Provenance | None = None
+
+
+class ShareholdingPattern(_Base):
+    ticker: str
+    source: Literal["bse", "nse", "yahoo", "unknown"] = "unknown"
+    latest: HolderBreakdown | None = None
+    history: list[HolderBreakdown] = Field(default_factory=list)  # newest-first
+    top_institutions: list[dict[str, Any]] = Field(default_factory=list)
+    observations: list[str] = Field(default_factory=list)  # smart alerts
+    ownership_signal: OwnershipSignal | None = None
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+# --------------------------------------------------------------------------------------
+# 5-year growth engine
+# --------------------------------------------------------------------------------------
+GrowthSignal = Literal["strong", "moderate", "weak"]
+DriverSource = Literal["curated", "industry", "news", "derived"]
+
+
+class GrowthDriver(_Base):
+    rank: int
+    name: str
+    detail: str | None = None
+    contribution_pct: float | None = None  # estimated share of forward growth (fraction of 1.0)
+    confidence: Confidence | None = None
+    risks: list[str] = Field(default_factory=list)
+    source: DriverSource = "derived"
+
+
+class Catalyst(_Base):
+    year: int | None = None
+    event: str
+    confidence: Confidence | None = None
+
+
+class GrowthOutlook(_Base):
+    ticker: str
+    primary_engine: str | None = None
+    sustainable_growth: float | None = None  # ROE * (1 - payout)
+    historical_revenue_cagr_3y: float | None = None
+    historical_eps_cagr_3y: float | None = None
+    analyst_growth_est: float | None = None  # forward, best-effort
+    industry_cagr: str | None = None
+    blended_5y_low: float | None = None
+    blended_5y_high: float | None = None
+    drivers: list[GrowthDriver] = Field(default_factory=list)
+    catalysts: list[Catalyst] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    growth_signal: GrowthSignal | None = None
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+# --------------------------------------------------------------------------------------
+# Fundamentals trend
+# --------------------------------------------------------------------------------------
+HealthGrade = Literal["Excellent", "Good", "Stable", "Weak", "Poor"]
+
+
+class MetricTrend(_Base):
+    name: str
+    periods: list[str] = Field(default_factory=list)  # newest-first labels
+    values: list[float | None] = Field(default_factory=list)
+    directions: list[str] = Field(default_factory=list)  # per YoY step: "up"|"flat"|"down"
+    health: HealthGrade | None = None
+    cagr: float | None = None
+
+
+class FundamentalTrend(_Base):
+    ticker: str
+    metrics: list[MetricTrend] = Field(default_factory=list)
+    financial_health: dict[str, str] = Field(default_factory=dict)  # {"Revenue": "Excellent", ...}
+    overall_health: HealthGrade | None = None
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+# --------------------------------------------------------------------------------------
+# Red flags
+# --------------------------------------------------------------------------------------
+Severity = Literal["low", "moderate", "high", "severe"]
+
+
+class RedFlag(_Base):
+    issue: str
+    severity: Severity = "moderate"
+    detail: str | None = None
+    provenance: Provenance | None = None
+
+
+class RedFlagReport(_Base):
+    ticker: str
+    flags: list[RedFlag] = Field(default_factory=list)
+    risk_level: Severity | Literal["none"] = "none"
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+# --------------------------------------------------------------------------------------
+# Investment thesis + AI-ready digest
+# --------------------------------------------------------------------------------------
+QualityGrade = Literal["Excellent", "Good", "Fair", "Weak", "Poor"]
+ValuationStance = Literal["cheap", "fair", "expensive"]
+
+
+class InvestmentThesis(_Base):
+    ticker: str
+    pros: list[str] = Field(default_factory=list)
+    cons: list[str] = Field(default_factory=list)
+    quality: QualityGrade | None = None
+    valuation_stance: ValuationStance | None = None
+    verdict: str | None = None  # one-liner, e.g. "High Quality, Fairly Expensive"
+    summary: str | None = None
+    confidence: Confidence | None = None
+    evidence: EvidenceMeta | None = None
+
+
+class AiSignals(_Base):
+    """Compact, machine-consumable digest for headless AI agents."""
+
+    ticker: str
+    investment_thesis: str | None = None
+    overall_quality: QualityGrade | None = None
+    confidence: float | None = None  # 0..1
+    ownership_signal: OwnershipSignal | None = None
+    growth_signal: GrowthSignal | None = None
+    risk_level: Severity | Literal["none"] | None = None
+    valuation_stance: ValuationStance | None = None
+    red_flags: list[str] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------------------
 # Signals / SWOT seeds / master report
 # --------------------------------------------------------------------------------------
 class Signal(_Base):
@@ -312,6 +557,17 @@ class AnalysisReport(_Base):
     moat: MoatSignals | None = None
     risk: RiskSignals | None = None
     score: Score | None = None
+    # Analyst-grade evidence layer (see analysis/*.py). Optional so the report degrades
+    # gracefully when a module can't be computed for a given symbol.
+    relative: RelativeComparison | None = None
+    buffett: BuffettChecklist | None = None
+    shareholding: ShareholdingPattern | None = None
+    growth_outlook: GrowthOutlook | None = None
+    fundamental_trend: FundamentalTrend | None = None
+    red_flags: RedFlagReport | None = None
+    thesis: InvestmentThesis | None = None
+    ai_signals: AiSignals | None = None
+    evidence: EvidenceMeta | None = None  # overall report quality/coverage
     signals: list[Signal] = Field(default_factory=list)
     swot_seeds: list[SwotSeed] = Field(default_factory=list)
     growth_driver_hints: list[str] = Field(default_factory=list)
