@@ -211,8 +211,15 @@ variables (never logged). It is read-only and does not modify your system.
 
 - **Promoter/insider shareholding** for NSE/BSE has no clean free API — best-effort, often
   unavailable for Indian names.
-- **Industry CAGR / market share** are curated/estimated (`data/*.yaml`), not live.
+- **Industry CAGR / market share** are curated/estimated (`data/*.yaml`), not live. Each peer group
+  carries an `updated_at` so you can judge staleness rather than assume freshness.
 - **Peer lists** start curated for major Indian sectors and are extensible via `data/peers.yaml`.
+  A ticker in no group falls back to a keyword match on its Yahoo industry; that guess is reported
+  as `basis: sector-fallback` and scored below a curated group. After editing peers.yaml, run
+  `python scripts/validate_peers.py` — a dead ticker silently drops a company out of its own peer
+  table, and no offline test can catch it.
+- **Confidence is about evidence quality, not about being right** — see [docs/confidence.md](docs/confidence.md)
+  for how it's computed and where it stops being trustworthy.
 - Sharp reporting discontinuities (e.g. a demerger) can distort growth; Investo flags a warning
   when it detects one, but read the note in context.
 

@@ -1,12 +1,39 @@
 # Curated peer groups, India-first (NSE symbols). Extend freely.
-# Each group: label, outlook (high|medium|low), industry_cagr (display string), members.
-# A company is matched to a group by membership; peers = the other members.
+#
+# Each group: label, outlook (high|medium|low), industry_cagr (display string), members, and
+# provenance (version, updated_at, source). A group may also carry `keywords` and narrative
+# overrides (sub_domains, demand_drivers, future_demand, risks) — see below.
+#
+# Matching, in order (see analysis/peers.py::resolve_peer_group):
+#   1. exact membership          -> basis "curated"
+#   2. `keywords` vs Yahoo's industry/sector, for tickers in no group -> basis "sector-fallback"
+# Keep `keywords` NARROW. A loose keyword that drags an unrelated company into a group and then
+# reports it at curated-grade confidence is worse than reporting no peers at all.
+#
+# ORDERING IS SIGNIFICANT: _group_for is first-match-wins over this file's order, and some
+# tickers are deliberately double-booked (EICHERMOT.NS in auto_oem + two_wheelers; RELIANCE.NS in
+# oil_gas_energy + telecom). The first listed group wins. APPEND new groups at the END — inserting
+# near the top silently reframes existing companies. tests/test_peers.py pins this.
+#
+# industry_cagr values are Investo's own curated estimates, not third-party forecasts; they are
+# rendered with their `updated_at` so a reader can judge staleness.
+
+# File-level provenance, merged into every group by data/__init__.py::peer_groups(). A group that
+# is revised on its own should override `updated_at` (and bump `version`) locally.
+meta:
+  version: 1
+  updated_at: "2026-07"
+  source: Investo curated
+
 groups:
   it_services:
     label: IT Services
     outlook: high
     industry_cagr: "~6-8% global IT services spend (est.)"
-    members: [TCS.NS, INFY.NS, WIPRO.NS, HCLTECH.NS, TECHM.NS, LTIM.NS, MPHASIS.NS, PERSISTENT.NS, COFORGE.NS]
+    keywords: [information technology services]
+    # LTIM.NS removed 2026-07: unresolvable at the provider across .NS and .BO (corporate
+    # action?). Re-add under its current symbol once confirmed — see scripts/validate_peers.py.
+    members: [TCS.NS, INFY.NS, WIPRO.NS, HCLTECH.NS, TECHM.NS, MPHASIS.NS, PERSISTENT.NS, COFORGE.NS]
 
   private_banks:
     label: Private Banks
@@ -30,7 +57,9 @@ groups:
     label: Automobiles (OEM)
     outlook: medium
     industry_cagr: "~8-10% volume + EV shift (est.)"
-    members: [MARUTI.NS, M&M.NS, TATAMOTORS.NS, TMCV.NS, TMPV.NS, ASHOKLEY.NS, EICHERMOT.NS]
+    # TATAMOTORS.NS removed 2026-07: the demerger replaced it with TMCV.NS (commercial) and
+    # TMPV.NS (passenger), both already listed here.
+    members: [MARUTI.NS, M&M.NS, TMCV.NS, TMPV.NS, ASHOKLEY.NS, EICHERMOT.NS]
 
   two_wheelers:
     label: Two-Wheelers
@@ -72,7 +101,9 @@ groups:
     label: Paints
     outlook: medium
     industry_cagr: "~9-11% (est.)"
-    members: [ASIANPAINT.NS, BERGEPAINT.NS, KANSAINER.NS, AKZOINDIA.NS]
+    # AKZOINDIA.NS removed 2026-07: unresolvable at the provider across .NS and .BO (corporate
+    # action?). Re-add under its current symbol once confirmed.
+    members: [ASIANPAINT.NS, BERGEPAINT.NS, KANSAINER.NS, INDIGOPNTS.NS]
 
   telecom:
     label: Telecom
@@ -120,10 +151,66 @@ groups:
     label: Aviation
     outlook: medium
     industry_cagr: "~10-12% (traffic growth, est.)"
-    members: [INDIGO.NS, SPICEJET.NS]
+    # SpiceJet resolves on BSE only; its NSE line is gone from the provider.
+    members: [INDIGO.NS, SPICEJET.BO]
 
   us_bigtech:
     label: US Big Tech
     outlook: high
     industry_cagr: "~10-12% (cloud + AI, est.)"
     members: [AAPL, MSFT, GOOGL, AMZN, META, NVDA]
+
+  # --- appended 2026-07; see the ordering note at the top of this file ---
+
+  # Automotive ER&D is NOT generic IT services: these firms sell engineering hours against OEM
+  # R&D budgets, so they track the auto cycle and SDV/EV programme spend, not enterprise IT
+  # discretionary spend. The narrative overrides below reframe them accordingly.
+  auto_erd:
+    label: Automotive ER&D
+    outlook: high
+    industry_cagr: "~12-15% (SDV, EV & ADAS engineering spend; est.)"
+    keywords: [automotive engineering, engineering r&d, embedded software]
+    sub_domains:
+      - Software-defined vehicles (SDV)
+      - ADAS & autonomous driving
+      - EV powertrain & battery management
+      - Vehicle electronics & middleware
+      - Digital cockpit & infotainment
+    demand_drivers:
+      - OEM transition to software-defined vehicles
+      - EV platform re-architecture programmes
+      - Rising ADAS content per vehicle
+      - OEMs externalising non-differentiating R&D
+      - Regulatory safety & emissions mandates
+    future_demand: >-
+      Structural rather than cyclical: as vehicles become software-defined, OEMs are
+      externalising engineering they cannot staff in-house. The risk is programme timing,
+      not the direction of travel.
+    risks:
+      - OEM R&D budget cuts or programme deferrals
+      - Client concentration (a few large OEMs)
+      - Wage inflation and engineer attrition
+      - USD/EUR-INR currency swings
+      - Pace of EV adoption slowing
+    members: [KPITTECH.NS, TATAELXSI.NS, TATATECH.NS, LTTS.NS, CYIENT.NS]
+
+  auto_components:
+    label: Auto Components
+    outlook: medium
+    industry_cagr: "~9-11% (content per vehicle + exports, est.)"
+    keywords: [auto parts, auto components]
+    members: [BOSCHLTD.NS, MOTHERSON.NS, BHARATFORG.NS, SONACOMS.NS, UNOMINDA.NS, ENDURANCE.NS, EXIDEIND.NS]
+
+  hospitals_diagnostics:
+    label: Hospitals & Diagnostics
+    outlook: high
+    industry_cagr: "~12-14% (insurance penetration + capacity, est.)"
+    keywords: [medical care facilities, diagnostics & research]
+    members: [APOLLOHOSP.NS, MAXHEALTH.NS, FORTIS.NS, NH.NS, LALPATHLAB.NS, METROPOLIS.NS]
+
+  capital_goods_defence:
+    label: Capital Goods & Defence
+    outlook: high
+    industry_cagr: "~13-16% (capex cycle + indigenisation, est.)"
+    keywords: [aerospace & defense, specialty industrial machinery]
+    members: [LT.NS, SIEMENS.NS, ABB.NS, BEL.NS, HAL.NS, BHEL.NS, CUMMINSIND.NS]

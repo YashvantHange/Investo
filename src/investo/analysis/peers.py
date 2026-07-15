@@ -1,24 +1,45 @@
 """Competitor analysis: find sector peers and build a side-by-side comparison.
 
-Peers come from the curated map (``data/peers.yaml``); when a ticker isn't in the map and a
-Finnhub key is configured, we fall back to Finnhub's peer list. Revenue and market cap are
-normalized to the queried company's trading currency so cross-listed peers (e.g. INFY in USD)
-compare fairly against INR-reporting peers.
+Peers are resolved by a ladder, best evidence first (see :func:`resolve_peer_group`): an exact
+curated match, then a keyword match on the company's Yahoo industry/sector, then Finnhub if a key
+is configured. The resulting :class:`PeerBasis` travels with the comparison so that everything
+derived from it can be priced honestly — a guessed peer set must not be presented with the same
+confidence as a deliberate one.
+
+Revenue and market cap are normalized to the queried company's trading currency so cross-listed
+peers (e.g. INFY in USD) compare fairly against INR-reporting peers.
 """
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
 from ..config import CONFIG
 from ..data import peer_groups
-from ..models import PeerComparison, PeerRow
+from ..models import PeerBasis, PeerComparison, PeerRow
 from ..sources import data
 
 _MAX_PEERS = 6
 
 
+@dataclass(frozen=True)
+class PeerResolution:
+    """How a peer set was found, and what it is."""
+
+    basis: PeerBasis
+    key: str | None
+    group: dict | None
+    peers: list[str]
+
+    @property
+    def label(self) -> str | None:
+        return self.group.get("label") if self.group else None
+
+
 def _group_for(symbol: str) -> tuple[str, dict] | None:
+    """Exact membership match. First-match-wins over peers.yaml order (deliberate — see the note
+    at the top of that file; some tickers are double-booked)."""
     sym = symbol.upper()
     for key, group in peer_groups().items():
         members = [m.upper() for m in group.get("members", [])]
@@ -27,21 +48,75 @@ def _group_for(symbol: str) -> tuple[str, dict] | None:
     return None
 
 
-def get_peers(symbol: str) -> tuple[list[str], dict | None]:
-    """Return (peer_symbols, group_metadata) for a ticker."""
-    found = _group_for(symbol)
-    if found:
-        _, group = found
-        peers = [m for m in group.get("members", []) if m.upper() != symbol.upper()]
-        return peers, group
+def _group_by_keywords(info: dict) -> tuple[str, dict] | None:
+    """Match a group's ``keywords`` against Yahoo's industry, then its sector.
 
-    # Fallback: Finnhub peers (optional, needs key).
+    Only reached for tickers in no curated group. Longest keyword wins so the most specific
+    match beats a generic one, with an alphabetical tie-break so the result never depends on
+    dict ordering — an unstable peer group would be worse than none.
+    """
+    for field in ("industry", "sector"):
+        haystack = str(info.get(field) or "").lower()
+        if not haystack:
+            continue
+        hits = [
+            (len(kw), key, group)
+            for key, group in peer_groups().items()
+            for kw in group.get("keywords", [])
+            if kw and kw.lower() in haystack
+        ]
+        if hits:
+            _, key, group = max(hits, key=lambda h: (h[0], _inverse(h[1])))
+            return key, group
+    return None
+
+
+def _inverse(key: str) -> tuple[int, ...]:
+    """Sort helper: makes `max` pick the alphabetically-first key on a length tie."""
+    return tuple(-ord(c) for c in key)
+
+
+def resolve_peer_group(symbol: str, info: dict | None = None) -> PeerResolution:
+    """Resolve ``symbol``'s peer set, best evidence first.
+
+    1. curated       — an exact membership match in data/peers.yaml
+    2. sector-fallback — a keyword match on Yahoo's industry/sector (an educated guess)
+    3. keyed         — Finnhub's peer list, when a key is configured
+    4. none          — no peers; callers must not pretend otherwise
+    """
+    sym = symbol.upper()
+
+    found = _group_for(sym)
+    if found:
+        key, group = found
+        peers = [m for m in group.get("members", []) if m.upper() != sym]
+        return PeerResolution("curated", key, group, peers)
+
+    info = data.get_info(symbol) if info is None else info
+    found = _group_by_keywords(info or {})
+    if found:
+        key, group = found
+        peers = [m for m in group.get("members", []) if m.upper() != sym]
+        if peers:
+            return PeerResolution("sector-fallback", key, group, peers)
+
     if CONFIG.has_finnhub:
         from ..sources import keyed
-        peers = keyed.finnhub_peers(symbol)
-        if peers:
-            return [p for p in peers if p.upper() != symbol.upper()], None
-    return [], None
+        fh = [p for p in keyed.finnhub_peers(symbol) if p.upper() != sym]
+        if fh:
+            return PeerResolution("keyed", None, None, fh)
+
+    return PeerResolution("none", None, None, [])
+
+
+def get_peers(symbol: str) -> tuple[list[str], dict | None]:
+    """Return (peer_symbols, group_metadata) for a ticker.
+
+    Kept for callers that don't care *how* the peers were found; prefer
+    :func:`resolve_peer_group`, which also tells you how much to trust them.
+    """
+    res = resolve_peer_group(symbol)
+    return res.peers, res.group
 
 
 def _bounded(value: float | None, lo: float, hi: float) -> float | None:
@@ -81,6 +156,11 @@ def _peer_row(symbol: str, base_ccy: str | None) -> PeerRow | None:
         pe=_bounded(f("trailingPE"), 0, 500),
         pb=_bounded(f("priceToBook"), 0, 100),
         roe=f("returnOnEquity"),
+        roa=f("returnOnAssets"),
+        # Bounded because Yahoo mixes currencies on cross-listed names: an INR enterprise value
+        # over USD EBITDA yields nonsense like 975x (see ratios.py).
+        ev_ebitda=_bounded(f("enterpriseToEbitda"), 0, 100),
+        price_to_sales=_bounded(f("priceToSalesTrailing12Months"), 0, 100),
         revenue_growth_yoy=f("revenueGrowth"),
         debt_to_equity=(d2e / 100.0) if d2e is not None else None,
     )
@@ -124,17 +204,26 @@ def _p(x: float | None) -> str:
     return f"{x:.1%}" if x is not None else "n/a"
 
 
+_NO_PEERS_NOTE = {
+    "none": "No peer group matched — not by membership in data/peers.yaml, not by industry "
+            "keyword. Add the ticker to a group there, or set FINNHUB_API_KEY.",
+    "keyed": "Finnhub returned no usable peers for this ticker.",
+}
+
+
 def compare_peers(symbol: str, max_peers: int = _MAX_PEERS) -> PeerComparison:
     """Build a peer comparison table for *symbol* (must be a resolved ticker)."""
     info = data.get_info(symbol)
     base_ccy = info.get("currency") or info.get("financialCurrency")
     sector = info.get("sector")
 
-    peers, group = get_peers(symbol)
+    res = resolve_peer_group(symbol, info)
+    peers = res.peers
+    group = res.group
     if not peers:
         return PeerComparison(
-            ticker=symbol.upper(), sector=sector, peers=[],
-            note="No curated peer group matched. Add one in data/peers.yaml or set FINNHUB_API_KEY.",
+            ticker=symbol.upper(), sector=sector, peers=[], basis=res.basis,
+            note=_NO_PEERS_NOTE.get(res.basis, _NO_PEERS_NOTE["none"]),
         )
 
     symbols = [symbol.upper()] + [p.upper() for p in peers[:max_peers]]
@@ -151,10 +240,17 @@ def compare_peers(symbol: str, max_peers: int = _MAX_PEERS) -> PeerComparison:
                 r.market_share_proxy = r.revenue_ttm / total_rev
 
     label = group.get("label") if group else sector
+    note = "Revenue & market cap normalized to the subject's trading currency."
+    if res.basis == "sector-fallback":
+        note = (f"{symbol.upper()} is not in a curated peer group; matched to '{label}' by its "
+                f"industry. Treat the comparison as indicative. ") + note
     return PeerComparison(
         ticker=symbol.upper(),
         sector=label,
         peers=rows,
         summary=_summarize(symbol, rows),
-        note="Revenue & market cap normalized to the subject's trading currency.",
+        basis=res.basis,
+        peer_group_key=res.key,
+        peer_group_label=label,
+        note=note,
     )
