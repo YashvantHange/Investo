@@ -44,6 +44,10 @@ def _rule(title: str) -> str:
     return f"\n\033[1m{title}\033[0m\n" + "-" * max(len(title), 40)
 
 
+def _dim(text: str) -> str:
+    return f"\033[2m{text}\033[0m"
+
+
 def _bar(normalized: float, width: int = 10) -> str:
     filled = int(round(normalized * width))
     return "█" * filled + "·" * (width - filled)
@@ -60,13 +64,15 @@ def _conf(confidence) -> str:
     return f"{confidence.score:.0%} {confidence.tier}"
 
 
-def _metric(name: str, value: float | None) -> str:
-    """Format a relative-comparison value: ratios as x.x, everything else as a percent."""
+def _metric(unit: str, value: float | None) -> str:
+    """Format a relative-comparison value from its declared unit.
+
+    The unit travels on the metric rather than being inferred from its name — guessing by name
+    silently renders any unrecognised ratio (EV/EBITDA, P/S) as a percentage.
+    """
     if value is None:
         return "n/a"
-    if name in {"P/E", "P/B", "Debt/Equity"}:
-        return f"{value:.1f}"
-    return f"{value:.1%}"
+    return f"{value:.1f}x" if unit == "ratio" else f"{value:.1%}"
 
 
 # --------------------------------------------------------------------------------------
@@ -117,14 +123,22 @@ def render_report(r: AnalysisReport) -> str:
     # Relative to industry
     rel = r.relative
     if rel and rel.metrics:
-        out.append(_rule("RELATIVE TO INDUSTRY"))
+        title = "RELATIVE TO INDUSTRY"
+        if rel.peer_group_label:
+            title += f" — {rel.peer_group_label.upper()}"
+        out.append(_rule(title))
         out.append(f"  {'Metric':18}{'Company':>10}{'Industry':>10}   Standing")
         for m in rel.metrics:
             band = "top quartile" if (m.percentile or 0) >= 0.75 else \
                    "above median" if (m.percentile or 0) >= 0.5 else \
                    "below median" if (m.percentile or 0) >= 0.25 else "bottom quartile"
-            out.append(f"  {m.name:18}{_metric(m.name, m.company):>10}"
-                       f"{_metric(m.name, m.industry):>10}   {band}")
+            out.append(f"  {m.name:18}{_metric(m.unit, m.company):>10}"
+                       f"{_metric(m.unit, m.industry):>10}   {band}")
+        # Say how the peer set was found — a guessed cohort must not read like a curated one.
+        out.append(f"  {_dim(f'{rel.peer_count - 1} peers, basis: {rel.basis}')}")
+    elif rel and rel.note:
+        out.append(_rule("RELATIVE TO INDUSTRY"))
+        out.append(f"  {_dim(rel.note)}")
 
     # Buffett checklist
     bf = r.buffett

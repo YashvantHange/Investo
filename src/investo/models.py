@@ -164,6 +164,11 @@ class Ratios(_Base):
 # --------------------------------------------------------------------------------------
 # Peers
 # --------------------------------------------------------------------------------------
+# How a peer set was arrived at. Drives how much to trust anything derived from it: a curated
+# group is a deliberate judgement, a sector fallback is an educated guess, "none" means no set.
+PeerBasis = Literal["curated", "sector-fallback", "keyed", "none"]
+
+
 class PeerRow(_Base):
     ticker: str
     name: str | None = None
@@ -174,6 +179,9 @@ class PeerRow(_Base):
     pe: float | None = None
     pb: float | None = None
     roe: float | None = None
+    roa: float | None = None
+    ev_ebitda: float | None = None
+    price_to_sales: float | None = None
     revenue_growth_yoy: float | None = None
     debt_to_equity: float | None = None
     market_share_proxy: float | None = None  # revenue / sum(revenue) within peer set
@@ -184,6 +192,10 @@ class PeerComparison(_Base):
     sector: str | None = None
     peers: list[PeerRow] = Field(default_factory=list)
     summary: list[str] = Field(default_factory=list)  # grounded observations
+    basis: PeerBasis = "none"
+    peer_group_key: str | None = None
+    peer_group_label: str | None = None
+    evidence: EvidenceMeta | None = None
     note: str | None = None
 
 
@@ -193,11 +205,14 @@ class PeerComparison(_Base):
 class IndustryIntelligence(_Base):
     ticker: str
     sector: str | None = None
-    industry: str | None = None
+    industry: str | None = None  # Yahoo's raw label, kept verbatim — it is a fact, not a judgement
+    peer_group: str | None = None  # Investo's framing, e.g. "Automotive ER&D"
+    basis: PeerBasis = "none"
     sub_domains: list[str] = Field(default_factory=list)
     demand_drivers: list[str] = Field(default_factory=list)
     future_demand: str | None = None
     industry_cagr: str | None = None  # curated string e.g. "~10-12% (FY24-30, est.)"
+    as_of: str | None = None  # when the curated framing was last reviewed
     risks: list[str] = Field(default_factory=list)
     source: Literal["curated", "keyed", "unknown"] = "curated"
     note: str | None = None
@@ -315,6 +330,10 @@ class Score(_Base):
 # --------------------------------------------------------------------------------------
 # Relative-to-industry comparison
 # --------------------------------------------------------------------------------------
+# How to render a metric's value. Carried on the metric so renderers stop guessing from its name.
+MetricUnit = Literal["ratio", "percent"]
+
+
 class RelativeMetric(_Base):
     name: str
     company: float | None = None
@@ -323,6 +342,7 @@ class RelativeMetric(_Base):
     better: bool | None = None  # is the company on the favourable side of the median?
     delta: float | None = None  # company - industry
     higher_is_better: bool = True
+    unit: MetricUnit = "percent"
     provenance: Provenance | None = None
 
 
@@ -331,6 +351,8 @@ class RelativeComparison(_Base):
     metrics: list[RelativeMetric] = Field(default_factory=list)
     peer_count: int = 0
     summary: list[str] = Field(default_factory=list)
+    basis: PeerBasis = "none"
+    peer_group_label: str | None = None
     evidence: EvidenceMeta | None = None
     note: str | None = None
 

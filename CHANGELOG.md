@@ -6,6 +6,48 @@ All notable changes to Investo are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Relative-to-industry reported 0.37 confidence over zero data.** A company in no curated peer
+  group (KPIT and the whole automotive ER&D cohort were in none) computed no metrics, then scored
+  `0.80 × (0.4 + 0.6×0) = 0.32` plus a `+0.05` **cross-source agreement bonus awarded over zero
+  rows** — a confident-looking number manufactured from nothing, which then leaked into the
+  report-level and thesis-level aggregates. Zero coverage now scores **0.00** with a reason that
+  says why. The same arithmetic was scoring 0.37 for every `unknown` Buffett criterion; that is
+  fixed too.
+- **Dead tickers in `data/peers.yaml`**, each of which silently dropped a company out of its own
+  peer table: `TATAMOTORS.NS` (superseded by the `TMCV.NS`/`TMPV.NS` demerger, both already
+  listed), `SPICEJET.NS` (resolves on BSE only → `SPICEJET.BO`), plus `LTIM.NS` and `AKZOINDIA.NS`
+  removed as unresolvable across `.NS`/`.BO`. Added `scripts/validate_peers.py` to catch this
+  class of rot, which no offline test can.
+
+### Added
+- **Automotive ER&D peer group** (`KPITTECH.NS`, `TATAELXSI.NS`, `TATATECH.NS`, `LTTS.NS`,
+  `CYIENT.NS`) — the market treats these as one cohort, and Yahoo's "Information Technology
+  Services" classification points the entire analysis at the wrong drivers, CAGR and risks. Plus
+  `auto_components`, `hospitals_diagnostics` and `capital_goods_defence`.
+- **Peer-resolution ladder** (`peers.resolve_peer_group`): curated membership → keyword match on
+  Yahoo's industry/sector → Finnhub → none. The resulting `PeerBasis` travels on `PeerComparison`,
+  `RelativeComparison` and `IndustryIntelligence`, so a guessed cohort can never be presented with
+  the confidence of a deliberate one.
+- **Three more relative metrics** — EV/EBITDA, ROA and P/S (7 → 10). Coverage is measured against
+  the metrics the peer set can actually rank on, so adding a metric Indian peers rarely report
+  doesn't silently mark every Indian company down.
+- **A peer group can reframe the industry narrative**, not just its outlook and CAGR: KPIT's
+  sub-domains are now SDV, ADAS and EV powertrain rather than "IT services & outsourcing". Yahoo's
+  raw `industry` string is preserved alongside — it's a fact, and hiding the disagreement would be
+  worse than showing it.
+- **`docs/confidence.md`** — worked examples, the reasoning behind each factor, and the known
+  limitations of the confidence model.
+- `evidence.confidence(reliability_factor=…)` for module-specific discounts, and per-group
+  provenance (`version`, `updated_at`, `source`) in `peers.yaml`.
+
+### Changed
+- **`ev.aggregate` blends modules by a coverage-weighted mean.** A module that found nothing now
+  carries zero weight rather than dragging the report down, and the evidence block says how many
+  modules came back empty.
+- `RelativeMetric` carries a `unit` (`ratio`/`percent`); renderers no longer guess from the metric
+  name, which rendered any unrecognised ratio (EV/EBITDA, P/S) as a percentage.
+
 ### Added
 - **Listed in the [Cursor Directory](https://cursor.directory)** with a one-click "Add to Cursor"
   install. The recommended config is now **`uvx --from git+…/Investo investo-mcp`** — it builds

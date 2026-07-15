@@ -22,8 +22,20 @@ def _load_yaml(filename: str) -> dict[str, Any]:
         return {}
 
 
+@cache
 def peer_groups() -> dict[str, Any]:
-    return _load_yaml("peers.yaml").get("groups", {})
+    """Curated peer groups, each merged with the file-level ``meta`` provenance defaults.
+
+    Insertion order is preserved and load-bearing: ``analysis.peers._group_for`` is
+    first-match-wins, and a few tickers sit in more than one group on purpose.
+    """
+    data = _load_yaml("peers.yaml")
+    meta = data.get("meta", {})
+    groups = data.get("groups", {})
+    if not isinstance(meta, dict) or not isinstance(groups, dict):
+        return {}
+    # A group's own version/updated_at wins over the file-level default.
+    return {key: {**meta, **group} for key, group in groups.items() if isinstance(group, dict)}
 
 
 def industry_notes() -> dict[str, Any]:

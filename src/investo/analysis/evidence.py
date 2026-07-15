@@ -4,15 +4,23 @@ Every analysis module reports *how much to trust it*, so a downstream agent can 
 conclusions correctly. Confidence is **computed, never asserted**: it is a transparent
 function of three inputs, documented here and unit-tested.
 
-    confidence = source_reliability * coverage_factor * history_factor  (+ agreement bonus)
+    confidence = source_reliability * coverage_factor * history_factor * reliability_factor
+                 (+ agreement bonus)
 
 - *source reliability* — how authoritative the underlying data is (an exchange filing beats a
   scraped estimate). When several sources back a module we take the best.
 - *coverage_factor* — fraction of the fields a module expects that were actually present,
-  softened so a couple of gaps don't collapse the score (``0.4 + 0.6 * coverage``).
+  softened so a couple of gaps don't collapse the score (``0.4 + 0.6 * coverage``). **The
+  softening deliberately does not apply at zero**: a module that computed *nothing* has earned
+  no confidence at all, so ``coverage == 0`` collapses the score to 0 rather than resting on
+  the 0.4 floor. A plausible-looking number derived from no data is worse than a zero.
 - *history_factor* — for trend-based checks, how many years of history backed it
   (``0.5 + 0.5 * min(1, years / target)``); ``None`` for point-in-time checks (no penalty).
-- *agreement bonus* — a small boost when two independent sources corroborate a figure.
+- *reliability_factor* — an optional module-specific discount for *how the inputs were
+  obtained*, distinct from how good the source is. Used by ``relative`` to price a guessed
+  peer group below a curated one. ``None`` means no discount.
+- *agreement bonus* — a small boost when two independent sources corroborate a figure. Gated
+  on coverage: with nothing computed, no two sources can agree on anything.
 
 The result is a ``Confidence`` with a 0-1 ``score``, a ``High/Medium/Low`` ``tier`` and a
 plain-language ``reason``. This module is the single source of truth reused everywhere, exactly
@@ -57,6 +65,20 @@ _DEFAULT_SOURCE_WEIGHT = 0.60
 _TIER_HIGH = 0.80
 _TIER_MEDIUM = 0.60
 
+# Coverage shaping: `_COVERAGE_FLOOR + _COVERAGE_SPAN * coverage` for any coverage above zero,
+# so a couple of gaps don't collapse the score. At exactly zero the floor does not apply.
+_ZERO_COVERAGE = 0.0
+_COVERAGE_FLOOR = 0.4
+_COVERAGE_SPAN = 0.6
+
+# History shaping: `_HISTORY_FLOOR + _HISTORY_SPAN * min(1, years / target)`.
+_HISTORY_FLOOR = 0.5
+_HISTORY_SPAN = 0.5
+
+# Boost applied when two independent sources corroborate a figure.
+_CORROBORATION_BONUS = 0.05
+_CORROBORATION_MIN_SOURCES = 2
+
 
 def source_weight(source: str | None) -> float:
     """Reliability weight for a source label (case-insensitive; highest matching key wins)."""
@@ -83,36 +105,57 @@ def confidence(
     history_years: int | None = None,
     target_years: int = 5,
     corroborated: bool = False,
+    reliability_factor: float | None = None,
     reason: str | None = None,
 ) -> Confidence:
     """Compute a :class:`Confidence` from source reliability, coverage and history depth.
 
     All inputs are optional; each missing input is treated neutrally (no penalty) so the
     formula degrades gracefully. See the module docstring for the exact factors.
+
+    ``coverage=0.0`` is the one input treated harshly rather than neutrally: it means the module
+    computed nothing, so the result is 0 and carries no agreement bonus.
     """
     labels = _source_labels(sources)
     best_source = max((source_weight(s) for s in labels), default=_DEFAULT_SOURCE_WEIGHT)
 
-    coverage_factor = 1.0 if coverage is None else 0.4 + 0.6 * _clamp01(coverage)
+    if coverage is None:
+        coverage_factor = 1.0
+    elif coverage <= _ZERO_COVERAGE:
+        coverage_factor = 0.0  # nothing computed -> no confidence, floor deliberately skipped
+    else:
+        coverage_factor = _COVERAGE_FLOOR + _COVERAGE_SPAN * _clamp01(coverage)
 
     if history_years is None:
         history_factor = 1.0
     else:
-        history_factor = 0.5 + 0.5 * min(1.0, history_years / max(target_years, 1))
+        history_factor = _HISTORY_FLOOR + _HISTORY_SPAN * min(
+            1.0, history_years / max(target_years, 1))
 
-    score = best_source * coverage_factor * history_factor
-    if corroborated or len(labels) >= 2:
-        score = min(1.0, score + 0.05)  # independent corroboration bonus
+    score = best_source * coverage_factor * history_factor * _clamp01(
+        1.0 if reliability_factor is None else reliability_factor)
+
+    # Two sources can only corroborate each other if there is something to agree on.
+    has_data = coverage is None or coverage > _ZERO_COVERAGE
+    corroborating = has_data and (
+        corroborated or len(labels) >= _CORROBORATION_MIN_SOURCES)
+    if corroborating:
+        score = min(1.0, score + _CORROBORATION_BONUS)
     score = round(_clamp01(score), 3)
 
     return Confidence(score=score, tier=tier(score), reason=reason or _auto_reason(
-        labels, coverage, history_years, target_years, corroborated or len(labels) >= 2))
+        labels, coverage, history_years, target_years, corroborating))
 
 
 def aggregate(metas: list[EvidenceMeta | None], notes: list[str] | None = None) -> EvidenceMeta:
-    """Roll several modules' :class:`EvidenceMeta` into one report-level quality block."""
+    """Roll several modules' :class:`EvidenceMeta` into one report-level quality block.
+
+    Modules are blended by a **coverage-weighted** mean: a module that found no data carries no
+    weight, so it neither drags the report down nor props it up. Point-in-time modules (no
+    coverage) weigh fully, as before. When any module came back empty we say so in ``notes`` —
+    a report built on 2 of 7 modules should not read like a report built on 7.
+    """
     present = [m for m in metas if m is not None]
-    conf_scores = [m.confidence.score for m in present if m.confidence]
     coverages = [m.data_coverage for m in present if m.data_coverage is not None]
     sources: list[Provenance] = []
     seen: set[tuple[str, str | None]] = set()
@@ -125,13 +168,26 @@ def aggregate(metas: list[EvidenceMeta | None], notes: list[str] | None = None) 
     missing = sorted({f for m in present for f in m.missing_fields})
     as_of = max((m.as_of for m in present if m.as_of), default=None)
 
-    score = round(sum(conf_scores) / len(conf_scores), 3) if conf_scores else 0.5
+    # (confidence, weight) per module. A module that found nothing weighs nothing.
+    scored = [(m.confidence.score, 1.0 if m.data_coverage is None else m.data_coverage)
+              for m in present if m.confidence]
+    total_weight = sum(w for _, w in scored)
+    if total_weight > 0:
+        score = round(sum(s * w for s, w in scored) / total_weight, 3)
+    else:
+        score = 0.0 if scored else 0.5  # every module empty vs nothing to blend at all
     coverage = round(sum(coverages) / len(coverages), 3) if coverages else None
-    conf = Confidence(score=score, tier=tier(score),
-                      reason=f"blended across {len(present)} module(s)")
+
+    empty = sum(1 for _, w in scored if w <= 0)
+    all_notes = list(notes or [])
+    if empty:
+        all_notes.append(f"{empty} of {len(scored)} modules found no data and were not blended "
+                         f"into this confidence.")
+    reason = f"coverage-weighted across {len(scored)} module(s)"
+    conf = Confidence(score=score, tier=tier(score), reason=reason)
     return EvidenceMeta(
         confidence=conf, data_coverage=coverage, sources=sources, source_count=len(sources),
-        missing_fields=missing, as_of=as_of, notes=list(notes or []),
+        missing_fields=missing, as_of=as_of, notes=all_notes,
     )
 
 
@@ -143,6 +199,7 @@ def build_meta(
     missing_fields: list[str] | None = None,
     history_years: int | None = None,
     target_years: int = 5,
+    reliability_factor: float | None = None,
     as_of: str | None = None,
     notes: list[str] | None = None,
     reason: str | None = None,
@@ -151,6 +208,10 @@ def build_meta(
 
     ``present``/``expected`` give data coverage; ``missing_fields`` is surfaced verbatim so a
     caller can see exactly what was unavailable.
+
+    Note that ``expected=0`` leaves coverage ``None`` (i.e. "not applicable", no penalty) rather
+    than zero. A caller that means "nothing was computed" must pass a non-zero ``expected`` with
+    ``present=0``, otherwise an empty module reads as a fully-covered one.
     """
     provs = list(sources or [])
     coverage: float | None = None
@@ -163,6 +224,7 @@ def build_meta(
         coverage=coverage,
         history_years=history_years,
         target_years=target_years,
+        reliability_factor=reliability_factor,
         reason=reason,
     )
     latest = as_of or _latest_as_of(provs)

@@ -143,13 +143,17 @@ def _relative(r: AnalysisReport) -> str:
     if not rel or not rel.metrics:
         return ""
     rows = "".join(
-        f"<tr><td>{escape(m.name)}</td><td class=\"num\">{_metric(m.name, m.company)}</td>"
-        f"<td class=\"num muted\">{_metric(m.name, m.industry)}</td>"
+        f"<tr><td>{escape(m.name)}</td><td class=\"num\">{_metric(m.unit, m.company)}</td>"
+        f"<td class=\"num muted\">{_metric(m.unit, m.industry)}</td>"
         f"<td>{_band_pill(m.percentile, m.better)}</td></tr>"
         for m in rel.metrics)
     head = "<thead><tr><th>Metric</th><th class=\"num\">Company</th>" \
            "<th class=\"num\">Industry</th><th>Standing</th></tr></thead>"
-    return _card("Relative to industry", f"<table class=\"grid\">{head}<tbody>{rows}</tbody></table>")
+    title = "Relative to industry"
+    if rel.peer_group_label:
+        title += f" — {escape(rel.peer_group_label)}"
+    aside = f"<span class=\"tag\">{rel.peer_count - 1} peers · {escape(rel.basis)}</span>"
+    return _card(title, f"<table class=\"grid\">{head}<tbody>{rows}</tbody></table>", aside=aside)
 
 
 def _buffett(r: AnalysisReport) -> str:
@@ -332,12 +336,11 @@ def _score_class(total: float) -> str:
     return "bad"
 
 
-def _metric(name: str, value: float | None) -> str:
+def _metric(unit: str, value: float | None) -> str:
+    """Format from the metric's declared unit; guessing by name mis-renders new ratios."""
     if value is None:
         return "—"
-    if name in {"P/E", "P/B", "Debt/Equity"}:
-        return f"{value:.1f}"
-    return f"{value:.1%}"
+    return f"{value:.1f}x" if unit == "ratio" else f"{value:.1%}"
 
 
 def _money(value: float | None, currency: str | None) -> str:
