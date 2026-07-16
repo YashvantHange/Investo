@@ -303,7 +303,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     from .analysis.report import analyze
     report = analyze(args.query, args.market)
     if getattr(args, "html", None):
-        from .analysis.report_html import render_html
+        from .render import render_html
         with open(args.html, "w", encoding="utf-8") as fh:
             fh.write(render_html(report))
         print(f"Wrote HTML report to {args.html}")

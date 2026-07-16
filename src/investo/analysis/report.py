@@ -14,6 +14,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 from ..models import AnalysisReport, Signal, SwotSeed
+from ..render.sections import build_guidance
 from ..resolve import resolve
 from ..sources import data
 from ..sources.news import get_news
@@ -36,37 +37,11 @@ from .trends import fundamental_trend
 
 _log = logging.getLogger("investo.analysis.report")
 
-_LLM_GUIDANCE = (
-    "You are Investo. Produce a PROFESSIONAL, ANALYST-GRADE report in clean, well-formatted "
-    "Markdown using ONLY the structured evidence here — never invent numbers. Use headed "
-    "sections, tables, and ✓/⚠/✗ markers; keep it scannable. Order:\n"
-    "1. HEADER: name, ticker, price, market cap, 52w range.\n"
-    "2. INVESTMENT THESIS (lead with `thesis`): the one-line `verdict`, `summary`, then a "
-    "Pros vs Cons table from `thesis.pros`/`thesis.cons`. Show `thesis.quality` and "
-    "`thesis.valuation_stance`.\n"
-    "3. RATING: `score.total`/100 (`score.verdict`) with the bucket table.\n"
-    "4. RELATIVE TO INDUSTRY (`relative`): a table of company vs industry(median) + the "
-    "percentile band for each metric.\n"
-    "5. WARREN BUFFETT CHECKLIST (`buffett`): the weighted `weighted_score`/100 and `verdict`, "
-    "then a table of each criterion — status (✓ pass / ⚠ warn / ✗ fail / — unknown), the "
-    "`reason`, the `confidence.tier`, and the `trend_verdict` where present.\n"
-    "6. SHAREHOLDING (`shareholding`): the latest promoter/FII/DII/public split and pledge, the "
-    "quarter-over-quarter `observations`, and the `ownership_signal`; note the source (exchange "
-    "filing vs Yahoo snapshot).\n"
-    "7. GROWTH ENGINE — NEXT 5 YEARS (`growth_outlook`): the `primary_engine`, a ranked table of "
-    "`drivers` (name, ~contribution %, confidence, key risks), the `catalysts` timeline "
-    "(year → event), the blended 5y band and `growth_signal`.\n"
-    "8. FUNDAMENTALS TREND (`fundamental_trend`): a compact table per metric with the ⬆/➡/⬇ "
-    "`directions` and `health` grade, and the `overall_health`.\n"
-    "9. RED FLAGS (`red_flags`): the `risk_level` and each flag with its severity; say so "
-    "explicitly if none.\n"
-    "10. WHAT IT DOES, competitor comparison (`peers`), SWOT (`swot_seeds`), key risks (`risk`), "
-    "and the DCF (respect any low-confidence note).\n"
-    "11. ANALYSIS QUALITY FOOTER (`evidence`): overall confidence (score + tier), data coverage, "
-    "source count, latest data date (`as_of`), and any `missing_fields`.\n"
-    "Surface confidence and provenance wherever the evidence provides them so the reader can "
-    "judge reliability. Close with one line: research/education only, not investment advice."
-)
+# Generated from the section registry rather than hand-written. Investo previously kept three
+# section lists in step by hand (this one, cli.render_report and the HTML body) and they drifted:
+# the HTML renderer had silently stopped emitting valuation, peers, industry, moat, SWOT and news.
+# The narrative the host LLM produces and the document the renderer produces now come from one list.
+_LLM_GUIDANCE = build_guidance()
 
 
 def _subject_share(peers, symbol: str) -> float | None:

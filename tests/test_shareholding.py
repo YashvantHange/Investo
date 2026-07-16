@@ -56,9 +56,13 @@ def test_annotate_generates_smart_observations_and_signal():
     pat = ShareholdingPattern(ticker="X", source="nse", latest=hist[0], history=hist)
     _annotate(pat)
     joined = " ".join(pat.observations)
-    assert "FII reducing" in joined and "⚠" in joined
+    # Observations are plain prose — presentation (glyphs/colour) is the renderer's job, so an
+    # unfavourable move is flagged in words rather than with a warning glyph.
+    assert "FII reducing" in joined and "(unfavourable)" in joined
     assert "DII increasing" in joined
     assert "Zero promoter pledge" in joined
+    # No status dingbats leak from the analysis layer into user-facing strings.
+    assert not any(ch in joined for ch in "✓✗⚠")
     assert pat.ownership_signal is not None
     assert pat.evidence is not None and pat.evidence.confidence is not None
 
