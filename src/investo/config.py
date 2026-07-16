@@ -69,6 +69,12 @@ class Config:
     enable_india_holdings: bool = True
     india_holdings_min_interval: float = 1.0  # polite gap between NSE/BSE calls
 
+    # PDF export. `chrome_path` overrides browser discovery; `export_dir` sandboxes the
+    # MCP export tool's output (empty => a temp dir).
+    chrome_path: str = ""
+    pdf_timeout: float = 60.0
+    export_dir: str = ""
+
     # Logging
     log_level: str = "WARNING"
 
@@ -105,6 +111,9 @@ def load_config() -> Config:
         av_daily_cap=_get_int("INVESTO_AV_DAILY_CAP", 25),
         enable_india_holdings=_get_bool("INVESTO_ENABLE_INDIA_HOLDINGS", True),
         india_holdings_min_interval=_get_float("INVESTO_INDIA_HOLDINGS_MIN_INTERVAL", 1.0),
+        chrome_path=os.getenv("INVESTO_CHROME", "").strip(),
+        pdf_timeout=_get_float("INVESTO_PDF_TIMEOUT", 60.0),
+        export_dir=os.getenv("INVESTO_EXPORT_DIR", "").strip(),
         log_level=(os.getenv("INVESTO_LOG_LEVEL", "WARNING").strip().upper() or "WARNING"),
     )
 

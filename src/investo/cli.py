@@ -17,6 +17,9 @@ import sys
 
 from .models import AnalysisReport, CompanyProfile
 
+# Distinguishes "flag absent" from "flag given with no value" for --html/--pdf (see build_parser).
+_UNSET = object()
+
 
 # --------------------------------------------------------------------------------------
 # Formatting helpers
@@ -302,17 +305,36 @@ def render_report(r: AnalysisReport) -> str:
 def _cmd_analyze(args: argparse.Namespace) -> int:
     from .analysis.report import analyze
     report = analyze(args.query, args.market)
-    if getattr(args, "html", None):
-        from .render import render_html
-        with open(args.html, "w", encoding="utf-8") as fh:
-            fh.write(render_html(report))
-        print(f"Wrote HTML report to {args.html}")
-        return 0
+
+    # --json / --html / --pdf are composable and each does exactly one thing. If none is given,
+    # print the terminal report. Nothing is silently discarded when several are combined.
+    want_html = getattr(args, "html", _UNSET) is not _UNSET
+    want_pdf = getattr(args, "pdf", _UNSET) is not _UNSET
+    exit_code = 0
+
     if args.json:
         print(json.dumps(report.model_dump(), indent=2, default=str))
-    else:
+
+    if want_html:
+        from .export import save_html
+        out = save_html(report, args.html)  # args.html is None when the flag is bare
+        print(f"Wrote HTML report to {out}")
+
+    if want_pdf:
+        from .export import PdfExportError, save_pdf
+        try:
+            out, engine, warnings = save_pdf(report, args.pdf)
+            for w in warnings:
+                print(f"warning: {w}", file=sys.stderr)
+            print(f"Wrote PDF report to {out}  ({engine})")
+        except PdfExportError as exc:
+            # The .html sidecar is still on disk; a failed export is still a failed command.
+            print(f"error: PDF export failed.\n{exc}", file=sys.stderr)
+            exit_code = 2
+
+    if not (args.json or want_html or want_pdf):
         print(render_report(report))
-    return 0
+    return exit_code
 
 
 def _cmd_search(args: argparse.Namespace) -> int:
@@ -356,8 +378,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     pa = sub.add_parser("analyze", help="Full investment analysis")
     pa.add_argument("query", help="Company name or ticker")
-    pa.add_argument("--json", action="store_true", help="Emit raw JSON")
-    pa.add_argument("--html", metavar="FILE", help="Write a self-contained HTML report to FILE")
+    pa.add_argument("--json", action="store_true", help="Emit raw JSON to stdout")
+    # nargs="?" + a distinct default: absent => _UNSET (don't write); bare => None (default name);
+    # with a value => that path. This is what lets --json/--html/--pdf compose.
+    pa.add_argument("--html", nargs="?", const=None, default=_UNSET, metavar="FILE",
+                    help="Write a self-contained HTML research note (default name if FILE omitted)")
+    pa.add_argument("--pdf", nargs="?", const=None, default=_UNSET, metavar="FILE",
+                    help="Write a PDF via headless Chrome/Edge (default name if FILE omitted)")
     _add_market(pa)
     pa.set_defaults(func=_cmd_analyze)
 

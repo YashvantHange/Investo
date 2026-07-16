@@ -37,6 +37,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# PDF export needs no dependency when a system Chrome/Edge/Chromium is present (the usual case);
+# this extra is only the managed-browser fallback for machines without one.
+pdf = ["playwright>=1.40"]
 dev = ["pytest>=8.0.0", "ruff>=0.6.0", "mypy>=1.10.0", "build>=1.2.0"]
 
 [project.scripts]
