@@ -6,7 +6,20 @@ All notable changes to Investo are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **PDF export** — `investo analyze --pdf [FILE]` renders the research note to PDF, with **no new
+  required dependency**. It shells out to a system Chrome/Edge/Chromium/Brave if one is installed
+  (the usual case), falls back to a Playwright-managed Chromium (`pip install 'investo[pdf]' &&
+  playwright install chromium`), and otherwise fails with a message naming all three remedies —
+  while still leaving the `.html` on disk. `INVESTO_CHROME` overrides browser discovery;
+  `INVESTO_PDF_TIMEOUT` and `INVESTO_EXPORT_DIR` are configurable. The engine lives in
+  `investo.export` (`save_html`, `save_pdf`, `find_browser`, `html_to_pdf`).
+
 ### Changed
+- **`investo analyze` output flags now compose.** `--json`, `--html` and `--pdf` each do one thing
+  and can be combined; previously `--html` silently suppressed `--json`. Bare `--html`/`--pdf` write
+  `investo-<SYMBOL>-<YYYY-MM-DD>.<ext>`; parent directories are created; a PDF-engine failure exits
+  2 (with the `.html` retained) and prints to stderr.
 - **`investo analyze --html` now renders an institutional research note, not a dashboard.** The old
   one-pager (rounded cards, KPI tiles, coloured status pills, ✓/▲ emoji, no charts) read as a
   generated artifact and covered fewer sections than the terminal report. The new renderer

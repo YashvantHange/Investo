@@ -92,9 +92,17 @@ investo analyze "Infosys"
 investo analyze "Reliance Industries"
 investo analyze "Tata Motors"
 investo analyze AAPL
-investo analyze "Reliance Industries" --html reliance.html   # self-contained analyst one-pager
+investo analyze "Reliance Industries" --html reliance.html   # self-contained research note
+investo analyze "Infosys" --pdf infosys.pdf                  # PDF via headless Chrome/Edge
+investo analyze "Infosys" --json --html infy.html           # flags compose; nothing is discarded
 investo search "tata motors"
 ```
+
+`--pdf` needs a Chromium-family browser: it uses a system **Chrome, Edge, Chromium or Brave** if one
+is installed (no setup), falls back to a managed Chromium via `pip install 'investo[pdf]' &&
+playwright install chromium`, and otherwise prints exactly how to fix it while still leaving the
+`.html` on disk. Point `INVESTO_CHROME` at a specific executable to override discovery. Bare `--html`
+/ `--pdf` (no filename) write `investo-<SYMBOL>-<date>.<ext>` in the working directory.
 
 ## Use it from Claude Code / Cursor
 
