@@ -3,8 +3,10 @@
 Prefers real NSE/BSE quarterly filings (promoter / FII / DII / public + promoter pledge) via
 :mod:`sources.india_holdings`, and falls back to Yahoo's coarse insider/institutional snapshot when
 the exchange endpoints are unavailable or the listing isn't Indian. On top of the raw split it
-generates the *smart observations* investors actually watch — "Promoter ↑", "FII reducing ⚠", "Zero
-pledge ✓" — and rolls them into an ``ownership_signal`` (bullish … bearish).
+generates the *smart observations* investors actually watch — "Promoter increasing", "FII reducing
+(unfavourable)", "Zero promoter pledge" — and rolls them into an ``ownership_signal`` (bullish …
+bearish). Observations are plain prose: presentation (glyphs, colour, emphasis) is the renderer's
+job, not the analysis layer's.
 """
 
 from __future__ import annotations
@@ -86,11 +88,11 @@ def _annotate(pattern: ShareholdingPattern) -> None:
             observations.append(f"Promoter holding {latest.promoter:.1%}")
         if latest.promoter_pledge is not None:
             if latest.promoter_pledge <= 0.001:
-                observations.append("Zero promoter pledge ✓")
+                observations.append("Zero promoter pledge")
                 score += 1
             else:
-                mark = "⚠⚠" if latest.promoter_pledge > 0.25 else "⚠"
-                observations.append(f"Promoter pledge {latest.promoter_pledge:.1%} {mark}")
+                flag = " (elevated)" if latest.promoter_pledge > 0.25 else ""
+                observations.append(f"Promoter pledge {latest.promoter_pledge:.1%}{flag}")
                 score -= 2 if latest.promoter_pledge > 0.25 else 1
 
     # Quarter-over-quarter moves (needs at least two periods of real filings).
@@ -111,9 +113,9 @@ def _annotate(pattern: ShareholdingPattern) -> None:
                 score += -0.5 if up else 0.5
             else:
                 good = up == favourable_up
-                mark = "✓" if good else "⚠"
+                flag = "" if good else " (unfavourable)"
                 verb = "increasing" if up else "reducing"
-                observations.append(f"{label} {verb} {abs(delta) * 100:.1f}pp QoQ {mark}")
+                observations.append(f"{label} {verb} {abs(delta) * 100:.1f}pp QoQ{flag}")
                 score += 1 if good else -1
 
     pattern.observations = observations

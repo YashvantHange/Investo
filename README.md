@@ -53,7 +53,9 @@ For any company, Investo supplies the evidence for:
 
 Every section carries a **confidence score, provenance and reasoning** (the evidence layer), so an
 AI agent — or you — can judge how far to trust each conclusion. A machine-readable `ai_signals`
-digest and a self-contained **HTML one-pager** (`--html`) are available too.
+digest and a self-contained, print-ready **research note** (`--html`) — numbered sections, inline
+SVG exhibits, footnotes and per-exhibit source lines, styled as an institutional equity-research
+document rather than a dashboard — are available too.
 
 ### Rating buckets (out of 100)
 

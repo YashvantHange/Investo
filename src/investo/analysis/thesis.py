@@ -63,9 +63,9 @@ def build_thesis(
     if buffett:
         for c in buffett.criteria:
             if c.status == "pass":
-                pros.append(f"Buffett ✓ {c.name} ({_short(c.reason)})")
+                pros.append(f"Buffett pass — {c.name} ({_short(c.reason)})")
             elif c.status == "fail":
-                cons.append(f"Buffett ✗ {c.name} ({_short(c.reason)})")
+                cons.append(f"Buffett fail — {c.name} ({_short(c.reason)})")
 
     # 3) Relative to industry — clear out/under-performance.
     if relative:

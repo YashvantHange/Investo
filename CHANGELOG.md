@@ -6,6 +6,30 @@ All notable changes to Investo are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **`investo analyze --html` now renders an institutional research note, not a dashboard.** The old
+  one-pager (rounded cards, KPI tiles, coloured status pills, ✓/▲ emoji, no charts) read as a
+  generated artifact and covered fewer sections than the terminal report. The new renderer
+  (`investo.render`) is a print-ready equity-research document: numbered sections, a serif text
+  face at a readable measure, hand-written inline-SVG exhibits (score decomposition, a diverging
+  peer-percentile chart, a margin-vs-growth scatter, sparklines, intrinsic-value-vs-price), `@page`
+  A4 furniture with running header/footer, footnotes, and a **Source:** line under every exhibit
+  that names the provenance and says when a figure is an Investo estimate rather than a forecast.
+  Status is carried by typography, not coloured lozenges; the document is self-contained and
+  CSP-safe. `render_html(report, standalone=False)` still returns a body fragment for embedding.
+- The renderer covers every section the terminal report does — valuation/DCF, peers, industry,
+  moat, risk, SWOT and news — which the old HTML silently dropped.
+- **One section registry** (`investo.render.sections`) is now the single ordered source of truth;
+  the host-LLM guidance in `analyze_company` is generated from it, so the narrative and the
+  rendered document can no longer describe different reports.
+- **Analysis modules emit plain prose.** `thesis`/`ownership`/`buffett` observations no longer
+  carry ✓/✗/⚠/→ glyphs; presentation is the renderer's job, and the renderer strips any residual
+  dingbats at the boundary as a backstop.
+
+### Removed
+- `investo.analysis.report_html` — replaced by the `investo.render` package. (The only importer was
+  the CLI.)
+
 ### Fixed
 - **Relative-to-industry reported 0.37 confidence over zero data.** A company in no curated peer
   group (KPIT and the whole automotive ER&D cohort were in none) computed no metrics, then scored
