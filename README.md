@@ -175,6 +175,11 @@ of Reliance?"*
 | `red_flags` | Automated deterioration warnings + overall risk level |
 | `investment_thesis` | Synthesized pros/cons, quality grade, valuation stance & one-line verdict |
 | `ai_signals` | Compact machine-readable digest (thesis, quality, confidence, ownership/growth signals, risk, valuation) |
+| `technical_snapshot` | Price/momentum context: 50/200-DMA + golden/death cross, RSI, volatility, drawdown, beta, 52-week position (context, not a signal) |
+| `dcf_sensitivity` | Intrinsic value across a discount-rate × terminal-growth grid + the growth implied by today's price |
+| `compare_companies` | Head-to-head across 2–6 named tickers (not a curated group) |
+| `peer_group_directory` | List the curated peer groups and their members |
+| `export_report` | Render a full analysis to an HTML/PDF file (writes a file; path sandboxed) |
 | `analyze_company` | Everything above bundled into one report (with a confidence/provenance evidence layer) |
 | `get_sec_facts` | SEC EDGAR cross-check (US/ADR only) |
 

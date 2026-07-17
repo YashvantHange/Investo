@@ -73,7 +73,12 @@
     { "name": "investment_thesis", "description": "Pros/cons, quality grade, valuation stance & verdict" },
     { "name": "ai_signals", "description": "Compact machine-readable analysis digest" },
     { "name": "get_sec_facts", "description": "SEC EDGAR cross-check (US/ADR)" },
-    { "name": "provider_status", "description": "Active data providers + disclosure" }
+    { "name": "provider_status", "description": "Active data providers + disclosure" },
+    { "name": "technical_snapshot", "description": "Price/momentum context: DMAs, RSI, volatility, drawdown, beta (not a signal)" },
+    { "name": "dcf_sensitivity", "description": "Intrinsic value across a discount-rate x terminal-growth grid + implied break-even growth" },
+    { "name": "compare_companies", "description": "Head-to-head across 2-6 named tickers (not a curated peer group)" },
+    { "name": "peer_group_directory", "description": "List the curated peer groups and their members" },
+    { "name": "export_report", "description": "Render a full analysis to an HTML or PDF file (writes a file)" }
   ],
   "compatibility": {
     "runtimes": { "python": ">=3.10" }

@@ -119,6 +119,25 @@ def get_peers(symbol: str) -> tuple[list[str], dict | None]:
     return res.peers, res.group
 
 
+def peer_group_directory():
+    """List the curated peer groups so a client can see how companies are grouped and why."""
+    from ..models import PeerGroupDirectory, PeerGroupInfo
+
+    groups = [
+        PeerGroupInfo(
+            key=key,
+            label=g.get("label", key),
+            outlook=g.get("outlook"),
+            industry_cagr=g.get("industry_cagr"),
+            updated_at=g.get("updated_at"),
+            member_count=len(g.get("members", [])),
+            members=list(g.get("members", [])),
+        )
+        for key, g in peer_groups().items()
+    ]
+    return PeerGroupDirectory(groups=groups, count=len(groups))
+
+
 def _bounded(value: float | None, lo: float, hi: float) -> float | None:
     if value is None:
         return None
