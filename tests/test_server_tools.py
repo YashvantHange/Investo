@@ -110,9 +110,11 @@ def test_attach_html_report_writes_into_the_sandbox_and_records_metadata(tmp_pat
     assert written.read_text(encoding="utf-8").startswith("<!doctype html>")
     assert report.html_bytes and report.html_bytes > 0
     assert report.investo_version and report.generated_at
-    # A clickable location so a client can open the report without a second call.
+    # The on-disk location, plus an http link that opens the rendered report on click.
     assert report.html_report_url and report.html_report_url.startswith("file:///")
     assert report.html_report_url == written.resolve().as_uri()
+    assert (report.html_report_open_url
+            and report.html_report_open_url.startswith("http://127.0.0.1:"))
 
 
 # --------------------------------------------------------------------------------------

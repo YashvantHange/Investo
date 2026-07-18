@@ -12,14 +12,17 @@ out at their site.
 
 from __future__ import annotations
 
+import http.server
 import logging
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 from .config import CONFIG
 
@@ -36,11 +39,85 @@ def file_url(path: str | os.PathLike) -> str:
     """A clickable, absolute ``file://`` URL for a local path, percent-escaped.
 
     ``resolve().as_uri()`` is the same construction the headless-Chrome path uses to load the
-    report, so clicking this link opens exactly the file that was written (a space becomes ``%20``,
-    Windows drive letters get ``file:///C:/…``). Callers surface it so a reader can open the report
-    without hunting for the path.
+    report (a space becomes ``%20``, Windows drive letters get ``file:///C:/…``). Surfaced as the
+    report's on-disk *location*. Note a chat/webview will not *open* a ``file://`` link on click
+    (it is sandboxed); :func:`preview_url` returns an ``http://`` link that does.
     """
     return Path(path).resolve().as_uri()
+
+
+# --------------------------------------------------------------------------------------
+# Local preview server: an http:// link the chat/webview will actually open on click
+# --------------------------------------------------------------------------------------
+# A file:// link is blocked from opening in a chat/webview; an http(s):// one is not. So each
+# report directory gets a tiny loopback static server, and callers hand back an
+# http://127.0.0.1:<port>/<file> URL that opens the *rendered* report in the browser on click.
+_preview_lock = threading.Lock()
+_preview_ports: dict[str, int] = {}  # resolved directory -> its server port (one per directory)
+
+
+def _start_preview_server(directory: Path) -> int:
+    """Start a loopback static server rooted at ``directory`` on a daemon thread; return its port."""
+
+    class _Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(directory), **kwargs)
+
+        def log_message(self, *args):  # keep the server quiet
+            pass
+
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)  # port 0 -> OS assigns
+    threading.Thread(target=httpd.serve_forever, name="investo-preview", daemon=True).start()
+    return httpd.server_address[1]
+
+
+def preview_url(path: str | os.PathLike) -> str | None:
+    """A clickable ``http://127.0.0.1:<port>/<file>`` URL that opens the rendered report on click.
+
+    Serves the report's own directory over a loopback-only static server (started once per
+    directory, on a daemon thread). Unlike :func:`file_url`, this link opens from a chat/webview.
+    Best-effort: returns ``None`` (rather than raising) if a server can't be bound.
+    """
+    try:
+        p = Path(path).resolve()
+        directory = str(p.parent)
+        with _preview_lock:
+            port = _preview_ports.get(directory)
+            if port is None:
+                port = _start_preview_server(p.parent)
+                _preview_ports[directory] = port
+        return f"http://127.0.0.1:{port}/{quote(p.name)}"
+    except OSError as exc:  # binding failed / sandboxed network — degrade to no link
+        _log.warning("preview server unavailable: %s", exc)
+        return None
+
+
+def _open_disabled() -> bool:
+    """Never launch an app under tests, CI, or when the user opted out."""
+    return bool(os.environ.get("INVESTO_NO_OPEN") or os.environ.get("CI")
+                or os.environ.get("PYTEST_CURRENT_TEST"))
+
+
+def open_file(path: str | os.PathLike) -> bool:
+    """Open ``path`` in the OS default app (best-effort; never raises). Returns whether it tried.
+
+    Used by the CLI ``--open`` flag — a short-lived CLI can't host a persistent preview server, so
+    it opens the file directly instead.
+    """
+    if _open_disabled():
+        return False
+    target = os.fspath(path)
+    try:
+        if sys.platform == "win32":
+            os.startfile(target)  # noqa: S606 — opening our own generated report
+        elif sys.platform == "darwin":
+            subprocess.run(["open", target], check=False)
+        else:
+            subprocess.run(["xdg-open", target], check=False)
+        return True
+    except OSError as exc:
+        _log.warning("could not open %s: %s", target, exc)
+        return False
 
 
 class PdfExportError(RuntimeError):

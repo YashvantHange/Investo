@@ -549,23 +549,25 @@ class AiSignals(_Base):
 # Analysis tools: export, technicals, DCF sensitivity, multi-company compare
 # --------------------------------------------------------------------------------------
 class ExportedFile(_Base):
-    """One written artifact and how to open it."""
+    """One written artifact: where it is, and a link that opens it."""
 
     path: str
-    file_url: str  # clickable file:// URL — opens the file in the default app on click
+    file_url: str  # file:// URL — the on-disk location (a chat/webview won't open this on click)
+    open_url: str | None = None  # http://127.0.0.1 link that opens the rendered report on click
     format: Literal["pdf", "html"]
     bytes: int = 0
 
 
 class ExportResult(_Base):
     path: str
-    file_url: str | None = None  # clickable file:// URL of `path`
+    file_url: str | None = None  # file:// URL of `path` (on-disk location)
+    open_url: str | None = None  # http://127.0.0.1 link that opens the rendered report on click
     format: Literal["pdf", "html"]
     bytes: int = 0
     engine: str | None = None  # e.g. "chrome.exe (headless)" | "playwright-chromium"
     warnings: list[str] = Field(default_factory=list)
     # Every artifact this call wrote, primary first — a PDF export also lists its HTML sidecar,
-    # so a caller has a clickable location for the html and the pdf.
+    # so a caller has a location and an open link for the html and the pdf.
     files: list[ExportedFile] = Field(default_factory=list)
 
 
@@ -696,7 +698,8 @@ class AnalysisReport(_Base):
     # Auto-export metadata: set when analyze_company writes an HTML report so a client can open
     # it without a second tool call. Optional — the report is complete without them.
     html_report_path: str | None = None
-    html_report_url: str | None = None   # clickable file:// URL of html_report_path
+    html_report_url: str | None = None       # file:// URL of html_report_path (on-disk location)
+    html_report_open_url: str | None = None  # http://127.0.0.1 link that opens it on click
     generated_at: str | None = None      # ISO-8601 UTC timestamp of when the report was written
     investo_version: str | None = None
     html_bytes: int | None = None
