@@ -544,6 +544,89 @@ class AiSignals(_Base):
 
 
 # --------------------------------------------------------------------------------------
+# Analysis tools: export, technicals, DCF sensitivity, multi-company compare
+# --------------------------------------------------------------------------------------
+class ExportResult(_Base):
+    path: str
+    format: Literal["pdf", "html"]
+    bytes: int = 0
+    engine: str | None = None  # e.g. "chrome.exe (headless)" | "playwright-chromium"
+    warnings: list[str] = Field(default_factory=list)
+
+
+class TechnicalSnapshot(_Base):
+    """Price/momentum context — deliberately not a trading signal.
+
+    Provides the technical backdrop (trend, volatility, drawdown) a fundamentals analysis usually
+    lacks. It carries no buy/sell verdict: the numbers are context for a human, not a
+    recommendation.
+    """
+
+    ticker: str
+    currency: str | None = None
+    as_of: str | None = None
+    price: float | None = None
+    dma_50: float | None = None
+    dma_200: float | None = None
+    above_50dma: bool | None = None
+    above_200dma: bool | None = None
+    cross_signal: Literal["golden", "death", "none"] | None = None
+    rsi_14: float | None = None
+    annualized_volatility: float | None = None
+    max_drawdown_1y: float | None = None
+    beta: float | None = None
+    beta_benchmark: str | None = None
+    fifty_two_week_position: float | None = None  # 0..1 within the 52-week range
+    observations: list[str] = Field(default_factory=list)
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+class DcfSensitivity(_Base):
+    """Intrinsic value across a discount-rate x terminal-growth grid, plus the growth the market
+    is implying at today's price. The exhibit every real DCF note carries."""
+
+    ticker: str
+    currency: str | None = None
+    base: DCFResult | None = None
+    discount_rates: list[float] = Field(default_factory=list)  # column axis
+    terminal_growths: list[float] = Field(default_factory=list)  # row axis
+    grid: list[list[float | None]] = Field(default_factory=list)  # grid[tg_i][r_i]; None where r<=g
+    grid_metric: Literal["intrinsic_per_share", "margin_of_safety"] = "intrinsic_per_share"
+    implied_breakeven_growth: float | None = None
+    current_price: float | None = None
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+class MultiCompare(_Base):
+    """A head-to-head across an arbitrary set of tickers (not a curated peer group)."""
+
+    tickers: list[str] = Field(default_factory=list)
+    rows: list[PeerRow] = Field(default_factory=list)
+    summary: list[str] = Field(default_factory=list)
+    evidence: EvidenceMeta | None = None
+    note: str | None = None
+
+
+class PeerGroupInfo(_Base):
+    key: str
+    label: str
+    outlook: str | None = None
+    industry_cagr: str | None = None
+    updated_at: str | None = None
+    member_count: int = 0
+    members: list[str] = Field(default_factory=list)
+
+
+class PeerGroupDirectory(_Base):
+    """The curated peer groups, so a client can see how companies are grouped and why."""
+
+    groups: list[PeerGroupInfo] = Field(default_factory=list)
+    count: int = 0
+
+
+# --------------------------------------------------------------------------------------
 # Signals / SWOT seeds / master report
 # --------------------------------------------------------------------------------------
 class Signal(_Base):

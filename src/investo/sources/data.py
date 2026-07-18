@@ -25,6 +25,7 @@ _log = logging.getLogger("investo.sources.data")
 # Re-export the calls that are Yahoo-sourced regardless of keys.
 search = yahoo.search
 get_financials = yahoo.get_financials
+get_history = yahoo.get_history
 fx_rate = yahoo.fx_rate
 get_esg_score = yahoo.get_esg_score
 get_growth_estimates = yahoo.get_growth_estimates

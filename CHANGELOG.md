@@ -7,6 +7,21 @@ All notable changes to Investo are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Five new MCP tools** (23 → 28):
+  - `technical_snapshot` — price/momentum context (50/200-day moving averages + golden/death cross,
+    RSI(14) with Wilder's smoothing, annualized volatility, 1-year max drawdown, beta vs the market
+    index, 52-week position). Explicitly framed as *context, not a trading signal*. Backed by a new
+    cached `sources/yahoo.get_history`.
+  - `dcf_sensitivity` — intrinsic value across a discount-rate × terminal-growth grid plus the
+    break-even growth implied by today's price. Fetches statements **once** and reuses them across
+    all 25 grid cells (get_financials is uncached).
+  - `compare_companies` — head-to-head across 2–6 arbitrary tickers (answers "compare KPIT with Tata
+    Elxsi and Tata Tech" directly), not limited to a curated group; share is named set-relative, not
+    "market share".
+  - `peer_group_directory` — lists the curated peer groups and members, so a client can see how
+    companies are grouped and why.
+  - `export_report` — renders a full analysis to an HTML/PDF file (the **only** non-read-only tool;
+    its LLM-supplied path is sandboxed to the export directory).
 - **PDF export** — `investo analyze --pdf [FILE]` renders the research note to PDF, with **no new
   required dependency**. It shells out to a system Chrome/Edge/Chromium/Brave if one is installed
   (the usual case), falls back to a Playwright-managed Chromium (`pip install 'investo[pdf]' &&

@@ -46,8 +46,10 @@ _HTTP_HEADERS = {
 # calls within one analysis don't re-hit the network).
 _CACHE_TTL = 900.0  # 15 minutes for company info
 _FX_TTL = 3600.0  # 1 hour for FX rates
+_HIST_TTL = 3600.0  # 1 hour for price history
 _MISSING = object()
 _INFO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_HISTORY_CACHE: dict[str, tuple[float, Any]] = {}
 
 
 def _cache_get(cache: dict[str, tuple[float, Any]], key: str, ttl: float) -> Any:
@@ -264,6 +266,28 @@ def get_financials(symbol: str, period: str = "annual") -> Financials:
         balance_sheet=_df_to_periods(bal),
         cash_flow=_df_to_periods(cf),
     )
+
+
+def get_history(symbol: str, period: str = "2y", interval: str = "1d"):
+    """Return an OHLCV price-history DataFrame (auto-adjusted), or None. Never raises.
+
+    Cached for an hour like the other Yahoo calls. A **copy** is handed out: a caller that adds
+    indicator columns must not mutate the cached frame the next caller will read.
+    """
+    key = f"{symbol.upper()}|{period}|{interval}"
+    cached = _cache_get(_HISTORY_CACHE, key, _HIST_TTL)
+    if cached is not _MISSING:
+        return cached.copy() if cached is not None else None
+    ratelimit.wait("yahoo", CONFIG.yahoo_min_interval)
+    df = None
+    try:
+        raw = _ticker(symbol).history(period=period, interval=interval, auto_adjust=True)
+        if raw is not None and not raw.empty:
+            df = raw
+    except Exception:
+        df = None
+    _cache_set(_HISTORY_CACHE, key, df)
+    return df.copy() if df is not None else None
 
 
 def get_news_raw(symbol: str) -> list[dict[str, Any]]:

@@ -3,10 +3,11 @@
 Exposes the analysis toolkit to an AI client (Claude Code, Claude Desktop, Cursor).
 Run with ``python -m investo.server`` (stdio transport) or via the ``investo-mcp`` script.
 
-Every tool is read-only and hits external data APIs, so all are annotated
-``readOnlyHint=True, openWorldHint=True``. Tools return typed pydantic models, so FastMCP
-emits an output schema and structured content the client can render; failures surface as MCP
-``isError`` results via FastMCP's built-in handling.
+Almost every tool is read-only and hits external data APIs, so those are annotated
+``readOnlyHint=True, openWorldHint=True``. The one exception is ``export_report``, which writes a
+file and is annotated ``readOnlyHint=False``; its output path is sandboxed to the export directory.
+Tools return typed pydantic models, so FastMCP emits an output schema and structured content the
+client can render; failures surface as MCP ``isError`` results via FastMCP's built-in handling.
 """
 
 from __future__ import annotations
@@ -26,6 +27,8 @@ from .models import (
     BuffettChecklist,
     CompanyProfile,
     DCFResult,
+    DcfSensitivity,
+    ExportResult,
     Financials,
     FundamentalTrend,
     GrowthOutlook,
@@ -33,8 +36,10 @@ from .models import (
     InvestmentThesis,
     Management,
     MoatSignals,
+    MultiCompare,
     NewsFeed,
     PeerComparison,
+    PeerGroupDirectory,
     ProviderStatus,
     Ratios,
     RedFlagReport,
@@ -44,6 +49,7 @@ from .models import (
     SearchResult,
     SecFacts,
     ShareholdingPattern,
+    TechnicalSnapshot,
 )
 from .resolve import resolve, resolve_ticker
 
@@ -63,8 +69,11 @@ mcp = FastMCP(
 
 _log = logging.getLogger("investo.server")
 
-# All tools are read-only data retrieval against external (open-world) APIs.
+# Most tools are read-only data retrieval against external (open-world) APIs.
 _READ = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+# export_report writes a file — it is the one non-read-only tool.
+_WRITE = ToolAnnotations(readOnlyHint=False, openWorldHint=True,
+                         destructiveHint=False, idempotentHint=False)
 
 # Validated enums / bounds -> surfaced in each tool's JSON input schema.
 Market = Literal["IN", "US"]
@@ -91,6 +100,30 @@ def _symbol(ticker_or_name: str, market: Market = "IN") -> str:
         return s.upper()
     resolved = resolve_ticker(s, market)
     return resolved or s.upper()
+
+
+def _safe_export_path(path: str | None, ext: str):
+    """Resolve an LLM-supplied export path, confined to the export directory.
+
+    ``path`` comes from a tool call, so it is untrusted. Any path that resolves outside the base
+    directory — a ``..`` traversal, or an absolute path (on either OS) — is rejected outright
+    rather than silently clamped, so the behaviour is identical on Windows and POSIX. A plain
+    relative name, optionally with subdirectories, is allowed; the extension is forced to match
+    the requested format.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from .config import CONFIG
+
+    base = Path(CONFIG.export_dir or (Path(tempfile.gettempdir()) / "investo-exports")).resolve()
+    base.mkdir(parents=True, exist_ok=True)
+
+    name = path or f"investo-export.{ext}"
+    candidate = (base / name).resolve()
+    if not candidate.is_relative_to(base):
+        raise ValueError("Export path must stay inside the export directory.")
+    return candidate.with_suffix(f".{ext}")
 
 
 # --------------------------------------------------------------------------------------
@@ -296,6 +329,84 @@ def relative_metrics(ticker: str, market: Market = "IN") -> RelativeComparison:
 
     symbol = _symbol(ticker, market)
     return relative_comparison(symbol, _compare(symbol), compute_ratios(symbol))
+
+
+@mcp.tool(title="Technical snapshot", annotations=_READ)
+def technical_snapshot(ticker: str, market: Market = "IN") -> TechnicalSnapshot:
+    """Price/momentum context: 50/200-day moving averages and any golden/death cross, RSI(14),
+    annualized volatility, 1-year max drawdown, beta vs the market index, and where the price
+    sits in its 52-week range. This is *context, not a trading signal* — no buy/sell verdict.
+    """
+    from .analysis.technical import technical_snapshot as _tech
+    return _tech(_symbol(ticker, market), market=market)
+
+
+@mcp.tool(title="DCF sensitivity", annotations=_READ)
+def dcf_sensitivity(ticker: str, market: Market = "IN") -> DcfSensitivity:
+    """Intrinsic value per share across a discount-rate x terminal-growth grid, plus the
+    break-even growth the market is implying at today's price. Shows how much the DCF rests on
+    its two key assumptions rather than presenting a single fragile number.
+    """
+    from .analysis.sensitivity import dcf_sensitivity as _sens
+    return _sens(_symbol(ticker, market), market)
+
+
+@mcp.tool(title="Compare companies", annotations=_READ)
+def compare_companies(
+    tickers: Annotated[list[str], Field(min_length=2, max_length=6)],
+    market: Market = "IN",
+) -> MultiCompare:
+    """Head-to-head comparison across 2-6 named tickers (not a curated peer group) — e.g. KPIT
+    vs Tata Elxsi vs Tata Technologies. Revenue and market cap are normalized to the first
+    ticker's trading currency; shares reported are within this set, not market share.
+    """
+    from .analysis.multi import compare_companies as _multi
+    return _multi([_symbol(t, market) for t in tickers])
+
+
+@mcp.tool(title="Peer group directory", annotations=_READ)
+def peer_group_directory() -> PeerGroupDirectory:
+    """List Investo's curated peer groups (label, outlook, industry CAGR, members) so a client
+    can see how companies are grouped and why a given company is compared to a given cohort.
+    """
+    from .analysis.peers import peer_group_directory as _dir
+    return _dir()
+
+
+@mcp.tool(title="Export report", annotations=_WRITE)
+def export_report(
+    query: str,
+    format: Literal["pdf", "html"] = "pdf",
+    path: str | None = None,
+    market: Market = "IN",
+) -> ExportResult:
+    """Render a full analysis to an HTML or PDF file and return where it was written.
+
+    PDF uses a headless Chrome/Edge if one is installed, else a Playwright-managed Chromium;
+    if neither is available the HTML is written and an error explains how to enable PDF. The
+    output path is sandboxed to the export directory (INVESTO_EXPORT_DIR, else a temp dir) —
+    a caller cannot write outside it.
+    """
+    from .analysis.report import analyze
+    from .export import PdfExportError, html_to_pdf, save_html
+
+    out = _safe_export_path(path, format)
+    report = analyze(query, market)
+
+    if format == "html":
+        written = save_html(report, out)
+        return ExportResult(path=str(written), format="html",
+                            bytes=written.stat().st_size, engine="renderer")
+
+    from .render import render_html
+    html = render_html(report)
+    out.with_suffix(".html").write_text(html, encoding="utf-8")  # sidecar survives a PDF failure
+    try:
+        engine, warnings = html_to_pdf(html, out)
+    except PdfExportError as exc:
+        raise ValueError(f"{exc}") from exc
+    return ExportResult(path=str(out), format="pdf", bytes=out.stat().st_size,
+                        engine=engine, warnings=warnings)
 
 
 @mcp.tool(title="Full analysis", annotations=_READ)
