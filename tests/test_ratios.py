@@ -62,3 +62,50 @@ def test_implausible_multiples_dropped():
     r = compute_ratios("X.NS", info={"enterpriseToEbitda": 975.0, "trailingPE": 12.0}, financials=_financials())
     assert r.ev_ebitda is None   # 975 is out of bounds -> treated as unknown
     assert r.pe == 12.0
+
+
+# --------------------------------------------------------------------------------------
+# Dividend yield: yfinance reports these fields on different scales, and dividendYield in
+# particular flipped to a *percent* (1.61 == 1.61%) — the old <=0.15 fraction filter nulled
+# every real yield. Field shapes below are the actual values fetched for these names.
+# --------------------------------------------------------------------------------------
+def test_dividend_yield_prefers_the_unambiguous_fraction_field():
+    # trailingAnnualDividendYield is a decimal fraction (HDFC Bank ~1.6%).
+    r = compute_ratios("HDFCBANK.NS", info={
+        "dividendYield": 1.61, "trailingAnnualDividendYield": 0.016083,
+        "dividendRate": 13.0, "currentPrice": 819.6}, financials=_financials())
+    assert r.dividend_yield is not None
+    assert abs(r.dividend_yield - 0.0161) < 1e-4  # ~1.6%, NOT nulled
+
+
+def test_percent_scale_dividend_yield_is_normalized_not_dropped():
+    # Only dividendYield present, on the percent scale. Must become a 5.7% fraction, not None.
+    r = compute_ratios("ITC.NS", info={"dividendYield": 5.73}, financials=_financials())
+    assert r.dividend_yield is not None
+    assert abs(r.dividend_yield - 0.0573) < 1e-4
+
+
+def test_low_yield_is_kept_not_dropped():
+    # AAPL ~0.3% — the old filter kept only <0.15% and this survived by luck; confirm it holds.
+    r = compute_ratios("AAPL", info={
+        "dividendYield": 0.32, "trailingAnnualDividendYield": 0.0031}, financials=_financials())
+    assert r.dividend_yield is not None
+    assert abs(r.dividend_yield - 0.0031) < 1e-4
+
+
+def test_dividend_rate_over_price_is_the_fallback():
+    r = compute_ratios("X.NS", info={"dividendRate": 22.0, "currentPrice": 427.65},
+                       financials=_financials())
+    assert r.dividend_yield is not None
+    assert abs(r.dividend_yield - 0.0514) < 1e-3  # 22/427.65
+
+
+def test_no_dividend_is_none():
+    r = compute_ratios("NODIV.NS", info={"trailingPE": 30.0}, financials=_financials())
+    assert r.dividend_yield is None
+
+
+def test_garbage_dividend_yield_is_rejected():
+    # A 300% "yield" is an anomaly, not a real payout.
+    r = compute_ratios("X.NS", info={"trailingAnnualDividendYield": 3.0}, financials=_financials())
+    assert r.dividend_yield is None

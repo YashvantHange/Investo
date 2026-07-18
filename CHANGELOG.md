@@ -59,6 +59,12 @@ All notable changes to Investo are documented here. The format follows
   the CLI.)
 
 ### Fixed
+- **Dividend yield was silently `None` for every company.** yfinance reports `dividendYield` as a
+  *percent* (`1.61` = 1.61%), but `ratios.py` filtered it as a fraction with a `<= 0.15` bound, so
+  every real yield — even a 0.3% one — was discarded. `dividend_yield` now prefers the unambiguous
+  fraction fields (`trailingAnnualDividendYield`, then `dividendRate / price`) and normalizes
+  `dividendYield` from percent only as a last resort, bounded to a sane 0–30%. The figure now
+  appears in the research note's valuation grid (e.g. ITC 5.2%, Coal India 6.2%).
 - **Relative-to-industry reported 0.37 confidence over zero data.** A company in no curated peer
   group (KPIT and the whole automotive ER&D cohort were in none) computed no metrics, then scored
   `0.80 × (0.4 + 0.6×0) = 0.32` plus a `+0.05` **cross-source agreement bonus awarded over zero
