@@ -40,6 +40,7 @@ def test_no_output_flag_prints_the_terminal_report_and_auto_writes_html(tmp_path
     written = list(tmp_path.glob("investo-KPITTECH.NS-*.html"))
     assert len(written) == 1
     assert "Wrote HTML report" in captured.err
+    assert "file://" in captured.err  # clickable location, announced on stderr
 
 
 def test_json_flag_emits_valid_json_on_a_clean_stdout(tmp_path, monkeypatch, capsys):
@@ -72,7 +73,9 @@ def test_html_flag_writes_a_file_and_creates_parents(tmp_path, capsys):
     assert _run(["analyze", "KPIT", "--html", str(target)]) == 0
     assert target.exists()
     assert target.read_text(encoding="utf-8").startswith("<!doctype html>")
-    assert "Wrote HTML report" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Wrote HTML report" in out
+    assert "file://" in out and "report.html" in out  # a clickable location to open it
 
 
 def test_bare_html_flag_uses_a_default_name(tmp_path, monkeypatch, capsys):
@@ -95,7 +98,9 @@ def test_pdf_success_reports_the_engine(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("investo.export.save_pdf",
                         lambda report, path: (tmp_path / "k.pdf", "chrome (headless)", []))
     assert _run(["analyze", "KPIT", "--pdf", str(tmp_path / "k.pdf")]) == 0
-    assert "chrome (headless)" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "chrome (headless)" in out
+    assert "file://" in out and "k.pdf" in out  # clickable location for the pdf
 
 
 def test_pdf_failure_exits_two_and_keeps_the_html(tmp_path, monkeypatch, capsys):

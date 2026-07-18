@@ -32,6 +32,17 @@ _log = logging.getLogger("investo.export")
 _UNSAFE = str.maketrans(dict.fromkeys('<>:"/\\|?*&%', "-"))
 
 
+def file_url(path: str | os.PathLike) -> str:
+    """A clickable, absolute ``file://`` URL for a local path, percent-escaped.
+
+    ``resolve().as_uri()`` is the same construction the headless-Chrome path uses to load the
+    report, so clicking this link opens exactly the file that was written (a space becomes ``%20``,
+    Windows drive letters get ``file:///C:/…``). Callers surface it so a reader can open the report
+    without hunting for the path.
+    """
+    return Path(path).resolve().as_uri()
+
+
 class PdfExportError(RuntimeError):
     """Raised when no PDF backend could produce a file. The message names the remedies."""
 
@@ -139,9 +150,9 @@ def _chrome_pdf(browser: Path, html: str, out_path: Path, timeout: float) -> str
         src.write_text(html, encoding="utf-8")
         profile = tmp_dir / "profile"  # (3) throwaway profile, see below
 
-        # (2) resolve().as_uri() builds file:///C:/... and percent-escapes spaces. A hand-built
-        #     "file://" + str(path) gets both the slashes and the spaces wrong on Windows.
-        url = src.resolve().as_uri()
+        # (2) file_url() -> resolve().as_uri() builds file:///C:/... and percent-escapes spaces. A
+        #     hand-built "file://" + str(path) gets both the slashes and the spaces wrong on Windows.
+        url = file_url(src)
 
         cmd = [
             str(browser),
