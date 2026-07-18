@@ -194,8 +194,9 @@ def _playwright_pdf(html: str, out_path: Path, timeout: float) -> str:
             try:
                 page = browser.new_page()
                 page.set_content(html, wait_until="load")
-                page.pdf(path=str(out_path), format="A4", print_background=True,
-                         # margins live in the document's @page rule; keep Playwright's off.
+                # Let the document's @page rule own the sheet size and margins (A4 + running
+                # header/footer room) rather than Playwright's defaults, so the PDF matches print.
+                page.pdf(path=str(out_path), print_background=True, prefer_css_page_size=True,
                          margin={"top": "0", "bottom": "0", "left": "0", "right": "0"})
             finally:
                 browser.close()

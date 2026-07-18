@@ -192,16 +192,46 @@ def test_no_dingbats_survive_from_upstream_prose():
         assert ch not in html, f"{ch!r} passed straight through the renderer"
 
 
-def test_status_is_typographic_not_a_coloured_pill():
+def test_status_renders_as_semantic_colour_badges():
+    # The redesign deliberately uses coloured status badges (quality/valuation/standing), driven
+    # by one shared mapping. A "Good" quality must land on the success badge, not plain text.
     html = render_html(_report())
-    assert 'class="pill' not in html
-    assert "border-radius:99px" not in html
+    assert 'class="badge' in html
+    assert "badge success" in html  # thesis.quality == "Good"
 
 
-def test_uses_a_serif_text_face_and_numbered_sections():
+def test_uses_a_serif_display_face_and_numbered_sections():
     html = render_html(_report())
-    assert "--serif:" in html
+    assert "--serif:" in html  # the masthead headline keeps a serif display face
     assert 'class="n">1</span>' in html  # sections are numbered like a research note
+
+
+def test_modern_report_furniture_is_present():
+    html = render_html(_report())
+    assert 'class="rating-block' in html          # headline rating block in the masthead
+    assert 'class="kpis"' in html                 # KPI card row
+    assert 'class="toc"' in html                  # table of contents (report has >=3 sections)
+    assert 'class="colophon"' in html             # generation stamp
+    assert '<meta name="description"' in html     # rich metadata
+
+
+def test_table_of_contents_is_omitted_for_a_thin_report():
+    # A bare report renders no sections, so a contents list would be dead links.
+    assert 'class="toc"' not in render_html(AnalysisReport(query="x"))
+
+
+def test_data_tables_carry_an_accessible_caption():
+    html = render_html(_report())
+    assert "<caption" in html
+    assert 'class="table-wrap"' in html
+
+
+def test_no_buy_sell_recommendation_language():
+    # Investo is research/education only; the document must never render a BUY/HOLD/SELL call,
+    # which would contradict its own disclaimer.
+    html = render_html(_report())
+    for token in ("BUY", "SELL", "HOLD"):
+        assert token not in html, f"{token!r} reads as a trading recommendation"
 
 
 # --------------------------------------------------------------------------------------

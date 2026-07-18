@@ -126,6 +126,29 @@ def _safe_export_path(path: str | None, ext: str):
     return candidate.with_suffix(f".{ext}")
 
 
+def _attach_html_report(report: AnalysisReport) -> None:
+    """Auto-write an HTML report to the sandbox and record where it went on the report.
+
+    A convenience so a full analysis leaves a shareable document without a second `export_report`
+    call. It is best-effort: a filesystem hiccup records a warning rather than failing the
+    analysis, so callers that only want the data still get it.
+    """
+    from datetime import datetime, timezone
+
+    from . import __version__
+    from .export import default_filename, save_html
+
+    report.generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    report.investo_version = __version__
+    try:
+        out = save_html(report, _safe_export_path(default_filename(report, "html"), "html"))
+        report.html_report_path = str(out)
+        report.html_bytes = out.stat().st_size
+    except Exception as exc:  # noqa: BLE001 — the convenience export must never sink the analysis
+        _log.warning("automatic HTML export failed: %s", exc)
+        report.warnings.append(f"Automatic HTML export failed: {exc}")
+
+
 # --------------------------------------------------------------------------------------
 # Tools
 # --------------------------------------------------------------------------------------
@@ -409,18 +432,24 @@ def export_report(
                         engine=engine, warnings=warnings)
 
 
-@mcp.tool(title="Full analysis", annotations=_READ)
-async def analyze_company(query: str, market: Market = "IN", ctx: Context | None = None) -> AnalysisReport:
+@mcp.tool(title="Full analysis", annotations=_WRITE)
+async def analyze_company(query: str, market: Market = "IN", emit_html: bool = True,
+                          ctx: Context | None = None) -> AnalysisReport:
     """Full investment analysis for a company name or ticker.
 
     Bundles profile, ratios, peer comparison, DCF, moat, risk, management, news, the 0-100
     score, plus SWOT seeds and growth-driver hints for the host LLM to turn into a narrative.
     Emits progress notifications while it works (~a few seconds).
+
+    Unless ``emit_html`` is False, it also writes a self-contained HTML research note to the
+    export directory and returns its location in ``html_report_path`` (with ``generated_at``,
+    ``investo_version`` and ``html_bytes``), so a client can open the rendered report without a
+    second ``export_report`` call. Writing the file is why this tool is not marked read-only.
     """
     from .analysis.report import analyze
 
     _clean(query)  # validate up front so bad input errors fast
-    _log.info("analyze_company(%r, market=%s)", query, market)
+    _log.info("analyze_company(%r, market=%s, emit_html=%s)", query, market, emit_html)
 
     def on_progress(current: int, total: int, message: str) -> None:
         if ctx is not None:
@@ -429,8 +458,14 @@ async def analyze_company(query: str, market: Market = "IN", ctx: Context | None
             except Exception:  # progress is best-effort; never fail the analysis over it
                 pass
 
+    def _run() -> AnalysisReport:
+        report = analyze(query, market, progress=on_progress)
+        if emit_html:
+            _attach_html_report(report)
+        return report
+
     # The analysis is blocking (network I/O) -> run it off the event loop and bridge progress.
-    return await anyio.to_thread.run_sync(lambda: analyze(query, market, progress=on_progress))
+    return await anyio.to_thread.run_sync(_run)
 
 
 @mcp.tool(title="SEC EDGAR facts", annotations=_READ)

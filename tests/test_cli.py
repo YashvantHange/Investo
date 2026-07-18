@@ -29,17 +29,42 @@ def _run(argv: list[str]) -> int:
     return args.func(args)
 
 
-def test_no_output_flag_prints_the_terminal_report(capsys):
+def test_no_output_flag_prints_the_terminal_report_and_auto_writes_html(tmp_path, monkeypatch,
+                                                                        capsys):
+    monkeypatch.chdir(tmp_path)  # auto-HTML writes to cwd; keep it out of the repo
     assert _run(["analyze", "KPIT"]) == 0
-    out = capsys.readouterr().out
-    assert "KPIT Technologies Limited" in out
-    assert not out.lstrip().startswith("{")  # not JSON
+    captured = capsys.readouterr()
+    assert "KPIT Technologies Limited" in captured.out  # terminal report on stdout
+    assert not captured.out.lstrip().startswith("{")  # not JSON
+    # The HTML report is written automatically, and announced on stderr (keeps stdout clean).
+    written = list(tmp_path.glob("investo-KPITTECH.NS-*.html"))
+    assert len(written) == 1
+    assert "Wrote HTML report" in captured.err
 
 
-def test_json_flag_emits_valid_json(capsys):
+def test_json_flag_emits_valid_json_on_a_clean_stdout(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
     assert _run(["analyze", "KPIT", "--json"]) == 0
-    parsed = json.loads(capsys.readouterr().out)
+    captured = capsys.readouterr()
+    parsed = json.loads(captured.out)  # stdout is pure JSON — the auto-HTML notice is on stderr
     assert parsed["query"] == "KPIT Technologies"
+    assert list(tmp_path.glob("investo-KPITTECH.NS-*.html")), "HTML is still auto-written"
+
+
+def test_no_html_flag_suppresses_the_automatic_report(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert _run(["analyze", "KPIT", "--no-html"]) == 0
+    assert not list(tmp_path.glob("*.html")), "--no-html must write no HTML file"
+
+
+def test_explicit_pdf_does_not_also_auto_write_html(tmp_path, monkeypatch, capsys):
+    # --pdf already produces a document (and its own .html sidecar); don't also drop a second
+    # auto-HTML in the cwd.
+    monkeypatch.setattr("investo.export.save_pdf",
+                        lambda report, path: (tmp_path / "k.pdf", "chrome (headless)", []))
+    monkeypatch.chdir(tmp_path)
+    assert _run(["analyze", "KPIT", "--pdf", str(tmp_path / "k.pdf")]) == 0
+    assert not list(tmp_path.glob("investo-KPITTECH.NS-*.html"))
 
 
 def test_html_flag_writes_a_file_and_creates_parents(tmp_path, capsys):

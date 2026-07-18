@@ -332,6 +332,14 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
             print(f"error: PDF export failed.\n{exc}", file=sys.stderr)
             exit_code = 2
 
+    # Automatic HTML report: write one by default unless the user asked for a specific artifact
+    # (--html / --pdf already produce a document) or opted out with --no-html. The announcement
+    # goes to stderr so `investo analyze X --json` stays pipeable on stdout.
+    if not (want_html or want_pdf or getattr(args, "no_html", False)):
+        from .export import save_html
+        out = save_html(report, None)
+        print(f"Wrote HTML report to {out}", file=sys.stderr)
+
     if not (args.json or want_html or want_pdf):
         print(render_report(report))
     return exit_code
@@ -385,6 +393,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help="Write a self-contained HTML research note (default name if FILE omitted)")
     pa.add_argument("--pdf", nargs="?", const=None, default=_UNSET, metavar="FILE",
                     help="Write a PDF via headless Chrome/Edge (default name if FILE omitted)")
+    pa.add_argument("--no-html", action="store_true",
+                    help="Suppress the HTML report that is otherwise written automatically")
     _add_market(pa)
     pa.set_defaults(func=_cmd_analyze)
 

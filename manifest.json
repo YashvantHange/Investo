@@ -51,7 +51,7 @@
     }
   },
   "tools": [
-    { "name": "analyze_company", "description": "Full analysis bundle + 0-100 rating" },
+    { "name": "analyze_company", "description": "Full analysis bundle + 0-100 rating; also writes an HTML report (emit_html)" },
     { "name": "search_company", "description": "Resolve a name to an NSE/BSE/global ticker" },
     { "name": "get_company_profile", "description": "Sector, business summary, market cap" },
     { "name": "get_financials", "description": "Income statement / balance sheet / cash flow" },
