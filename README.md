@@ -59,11 +59,17 @@ document rather than a dashboard — are available too.
 
 ### Rating buckets (out of 100)
 
-| Growth | Profitability | Cash Flow | Debt | Valuation | Moat | Management | Industry | Innovation | Risk | ESG* |
+| Growth | Profitability | Cash Flow | Balance Sheet | Valuation | Moat | Management | Industry | Innovation | Risk | ESG* |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 15 | 15 | 10 | 10 | 15 | 10 | 10 | 5 | 5 | 5 | 5* |
+| 15 | 17 | 10 | 11 | 10 | 12 | 10 | 5 | 5 | 5 | 5* |
 
 \*ESG is optional; when unavailable the remaining buckets renormalize to 100.
+
+**Valuation is quality-aware.** A premium multiple isn't punished when the company's economics
+justify it — the acceptable P/E · P/B · EV/EBITDA ceilings widen with ROE, margins and growth, so a
+proven compounder isn't floored just for not being cheap (while a low-quality expensive name still
+is). **Net cash** strengthens the score — it lifts the Balance Sheet bucket and lowers the effective
+equity multiple — and **net debt** weakens both.
 
 ---
 
