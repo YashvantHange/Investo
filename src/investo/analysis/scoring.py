@@ -2,8 +2,12 @@
 
 Weights (out of 100; ESG is an optional 11th that renormalizes the total):
 
-    Growth 15 | Profitability 15 | Cash Flow 10 | Debt 10 | Valuation 15
-    Moat 10 | Management 10 | Industry 5 | Innovation 5 | Risk 5 | (ESG 5, optional)
+    Growth 15 | Profitability 17 | Cash Flow 10 | Balance Sheet 11 | Valuation 10
+    Moat 12 | Management 10 | Industry 5 | Innovation 5 | Risk 5 | (ESG 5, optional)
+
+Valuation is quality-aware: the acceptable multiple ceilings widen with the company's economics
+(returns, margins, growth), and net cash lowers the effective equity multiple -- so a proven,
+cash-rich compounder is not floored for trading at a premium.
 
 Financial buckets are computed from ratios/DCF. Qualitative buckets (moat, management,
 industry, innovation, risk) use transparent heuristics from the same data; the host LLM can
@@ -17,14 +21,16 @@ from __future__ import annotations
 
 from ..models import DCFResult, Ratios, Score, ScoreBucket
 
-# Bucket weights (core ten sum to 100).
+# Bucket weights (core ten sum to 100). Leans on durable quality over absolute cheapness:
+# Valuation is a lighter cross-check (10) while Profitability (17), Moat (12) and the net-cash-
+# aware Balance Sheet (11) carry more.
 WEIGHTS = {
     "Growth": 15.0,
-    "Profitability": 15.0,
+    "Profitability": 17.0,
     "Cash Flow": 10.0,
-    "Debt": 10.0,
-    "Valuation": 15.0,
-    "Competitive Moat": 10.0,
+    "Balance Sheet": 11.0,
+    "Valuation": 10.0,
+    "Competitive Moat": 12.0,
     "Management": 10.0,
     "Industry Outlook": 5.0,
     "Innovation": 5.0,
@@ -59,6 +65,25 @@ def _avg(vals: list[float | None]) -> float | None:
 
 def _pct(x: float | None) -> str:
     return f"{x:.1%}" if x is not None else "n/a"
+
+
+def _quality_factor(r: Ratios) -> float:
+    """Business-quality read in [0, 1] from returns, margins and growth.
+
+    Four independent signals so the factor can't be gamed by leverage-inflated ROE (operating
+    margin) or a hollow top line (EPS CAGR blended into revenue growth). Each `_lin` clamps, so a
+    single sky-high metric can't dominate. Reusable across scorers; neutral 0.5 when data is absent.
+    """
+    growth_blend = _avg([r.revenue_cagr_3y, r.eps_cagr_3y])
+    if growth_blend is None:
+        growth_blend = r.revenue_growth_yoy
+    q = _avg([
+        _lin(r.roe, 0.10, 0.30),
+        _lin(r.roce, 0.12, 0.35),
+        _lin(r.operating_margin, 0.05, 0.30),
+        _lin(growth_blend, 0.0, 0.20),
+    ])
+    return q if q is not None else 0.5
 
 
 # --------------------------------------------------------------------------------------
@@ -97,6 +122,7 @@ def score_cashflow(r: Ratios) -> tuple[float | None, str, dict]:
 
 
 def score_debt(r: Ratios, sector: str | None = None) -> tuple[float | None, str, dict]:
+    """Balance-sheet strength: leverage, liquidity and net-cash position (higher = stronger)."""
     is_financial = sector in _FINANCIAL_SECTORS
     parts = [
         _lin(r.interest_coverage, 2.0, 12.0),
@@ -104,37 +130,71 @@ def score_debt(r: Ratios, sector: str | None = None) -> tuple[float | None, str,
     ]
     if not is_financial:  # leverage is structurally high for banks/NBFCs; don't penalize
         parts.append(_inv(r.debt_to_equity, 0.0, 2.0))
+        # Signed net-cash term: net debt (-20% of m.cap) drags below the debt-free midpoint,
+        # a fortress net-cash pile (+20%) lifts it -- so leveraged / debt-free / net-cash names
+        # are separated. (Skipped for financials, where cash and debt are the business.)
+        parts.append(_lin(r.net_cash_to_market_cap, -0.20, 0.20))
     n = _avg(parts)
     de = "excluded (financial sector)" if is_financial else \
          (f"{r.debt_to_equity:.2f}" if r.debt_to_equity is not None else "n/a")
     cov = f"{r.interest_coverage:.1f}x" if r.interest_coverage is not None else "n/a"
     rat = f"debt/equity {de}, interest coverage {cov}"
+    if not is_financial and r.net_cash_to_market_cap is not None:
+        label = "net cash" if r.net_cash_to_market_cap >= 0 else "net debt"
+        rat += f", {label} {_pct(abs(r.net_cash_to_market_cap))} of m.cap"
     return n, rat, {"debt_to_equity": r.debt_to_equity, "interest_coverage": r.interest_coverage,
-                    "current_ratio": r.current_ratio}
+                    "current_ratio": r.current_ratio,
+                    "net_cash_to_market_cap": r.net_cash_to_market_cap}
 
 
 def score_valuation(r: Ratios, dcf: DCFResult | None = None) -> tuple[float | None, str, dict]:
+    q = _quality_factor(r)
+    # Ceilings widen *quadratically* with quality: average names keep today's ceilings (40 / 8 / 25);
+    # only exceptional quality unlocks real headroom -- so a proven compounder isn't floored for a
+    # premium multiple, while a low-quality expensive name still is.
+    qf = q * q
+    pe_hi = 40.0 + qf * 35.0
+    pb_hi = 8.0 + qf * 7.0
+    ev_hi = 25.0 + qf * 15.0
+    # Ex-cash equity multiples: net cash lowers the effective P/E and P/B (dampened so a cash-heavy
+    # balance sheet helps without a runaway boost; net debt raises them). EV/EBITDA is already
+    # cash-adjusted, so it's left alone to avoid double-counting.
+    ncm = max(-0.5, min(0.8, r.net_cash_to_market_cap or 0.0))
+    cash_factor = 1.0 - 0.5 * ncm
+    eff_pe = r.pe * cash_factor if r.pe is not None else None
+    eff_pb = r.pb * cash_factor if r.pb is not None else None
     multiples = _avg([
-        _inv(r.pe, 8.0, 40.0),
-        _inv(r.pb, 1.0, 8.0),
-        _inv(r.ev_ebitda, 6.0, 25.0),
+        _inv(eff_pe, 8.0, pe_hi),
+        _inv(eff_pb, 1.0, pb_hi),
+        _inv(r.ev_ebitda, 6.0, ev_hi),
         _inv(r.peg, 1.0, 3.0) if (r.peg is not None and r.peg > 0) else None,
     ])
     mos = dcf.margin_of_safety if dcf else None
     dcf_score = None
     if mos is not None:
-        dcf_score = _lin(max(-1.0, min(0.7, mos)), -0.3, 0.4)  # clamp: DCF unreliable for capex-heavy
-    # Multiples dominate (0.75); DCF is a secondary cross-check (0.25).
+        # Recentred so fair value (mos~0) scores ~0.5; clamp: DCF unreliable for capex-heavy names.
+        dcf_score = _lin(max(-1.0, min(0.7, mos)), -0.4, 0.4)
+    # Multiples dominate (0.70); DCF is an assumption-sensitive cross-check (0.30).
     n: float | None
     if multiples is not None and dcf_score is not None:
-        n = 0.75 * multiples + 0.25 * dcf_score
+        n = 0.70 * multiples + 0.30 * dcf_score
     else:
         n = multiples if multiples is not None else dcf_score
+    # Rationale: make the quality-aware assessment explicit rather than reading as a blind penalty.
     pe = f"{r.pe:.1f}" if r.pe is not None else "n/a"
     rat = f"P/E {pe}, P/B {r.pb:.1f}" if r.pb is not None else f"P/E {pe}"
+    premium = (r.pe is not None and r.pe > 40) or (r.pb is not None and r.pb > 8)
+    if premium and q >= 0.66:
+        rat += (" - premium multiples assessed relative to strong quality "
+                "(ROE/margins/growth), which justifies part of the premium")
+    if r.net_cash_to_market_cap is not None and r.net_cash_to_market_cap > 0.05:
+        rat += f", net cash {_pct(r.net_cash_to_market_cap)} of m.cap"
     if mos is not None:
         rat += f", DCF margin of safety {_pct(mos)}"
-    return n, rat, {"pe": r.pe, "pb": r.pb, "ev_ebitda": r.ev_ebitda, "dcf_margin_of_safety": mos}
+    return n, rat, {"pe": r.pe, "pb": r.pb, "ev_ebitda": r.ev_ebitda,
+                    "quality_factor": round(q, 3),
+                    "net_cash_to_market_cap": r.net_cash_to_market_cap,
+                    "dcf_margin_of_safety": mos}
 
 
 def score_moat(r: Ratios, market_share_proxy: float | None = None) -> tuple[float | None, str, dict]:
@@ -243,7 +303,7 @@ def compute_score(
         ("Growth", "computed", *score_growth(ratios)),
         ("Profitability", "computed", *score_profitability(ratios)),
         ("Cash Flow", "computed", *score_cashflow(ratios)),
-        ("Debt", "computed", *score_debt(ratios, sector)),
+        ("Balance Sheet", "computed", *score_debt(ratios, sector)),
         ("Valuation", "computed", *score_valuation(ratios, dcf)),
         ("Competitive Moat", "heuristic", *score_moat(ratios, market_share_proxy)),
         ("Management", "heuristic", *score_management(ratios, promoter_holding)),

@@ -144,6 +144,8 @@ class Ratios(_Base):
     interest_coverage: float | None = None
     current_ratio: float | None = None
     quick_ratio: float | None = None
+    net_cash: float | None = None                 # cash - total debt, statement currency
+    net_cash_to_market_cap: float | None = None   # FX-normalized, dimensionless (signed)
 
     # Growth
     revenue_growth_yoy: float | None = None

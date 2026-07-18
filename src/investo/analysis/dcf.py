@@ -54,26 +54,6 @@ def _estimate_growth(ratios: Ratios, terminal_growth: float) -> float:
     return _clamp(g, terminal_growth + 0.01, _GROWTH_CAP)
 
 
-def _net_debt(fin: Financials, info: dict[str, Any]) -> float:
-    bal = F.latest(fin.balance_sheet)
-    total_debt = F.pick(bal, *F.TOTAL_DEBT)
-    cash = F.pick(bal, *F.CASH)
-    if total_debt is None:
-        total_debt = _f(info.get("totalDebt"))
-    if cash is None:
-        cash = _f(info.get("totalCash"))
-    total_debt = total_debt or 0.0
-    cash = cash or 0.0
-    return total_debt - cash
-
-
-def _f(v: Any) -> float | None:
-    try:
-        return float(v) if v is not None else None
-    except (TypeError, ValueError):
-        return None
-
-
 def compute_dcf(
     symbol: str,
     info: dict[str, Any] | None = None,
@@ -133,7 +113,7 @@ def compute_dcf(
     pv_terminal = terminal_value / ((1 + r) ** n)
     enterprise_value = pv_fcf + pv_terminal
 
-    net_debt = _net_debt(financials, info)
+    net_debt = F.net_debt(financials, info)
     equity_value_stmt = enterprise_value - net_debt
 
     result.enterprise_value = enterprise_value
@@ -141,8 +121,8 @@ def compute_dcf(
 
     # Convert equity value to trading currency for a per-share figure.
     fx = data.fx_rate(stmt_ccy, price_ccy)
-    shares = _f(info.get("sharesOutstanding"))
-    price = _f(info.get("currentPrice") or info.get("regularMarketPrice"))
+    shares = F._f(info.get("sharesOutstanding"))
+    price = F._f(info.get("currentPrice") or info.get("regularMarketPrice"))
     result.current_price = price
 
     assumptions = [

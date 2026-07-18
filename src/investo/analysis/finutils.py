@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from ..models import FinancialPeriod
+from typing import Any
+
+from ..models import Financials, FinancialPeriod
 
 
 def safe_div(numerator: float | None, denominator: float | None) -> float | None:
@@ -84,3 +86,28 @@ OPERATING_CASH_FLOW = ("Operating Cash Flow", "Cash Flow From Continuing Operati
 CAPEX = ("Capital Expenditure", "Capital Expenditure Reported")
 DIVIDENDS_PAID = ("Cash Dividends Paid", "Common Stock Dividend Paid")
 REPURCHASE = ("Repurchase Of Capital Stock", "Common Stock Payments")
+
+
+def _f(v: Any) -> float | None:
+    """Best-effort float coercion; None on failure."""
+    try:
+        return float(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def net_debt(fin: Financials, info: dict[str, Any]) -> float:
+    """Total debt minus cash in statement currency (0.0 fallbacks).
+
+    Reads the balance sheet first, then falls back to Yahoo ``info`` totals. A negative result
+    means the company holds more cash than debt (net cash). Single source of truth for both the
+    DCF equity bridge and the Ratios net-cash fields.
+    """
+    bal = latest(fin.balance_sheet)
+    total_debt = pick(bal, *TOTAL_DEBT)
+    cash = pick(bal, *CASH)
+    if total_debt is None:
+        total_debt = _f(info.get("totalDebt"))
+    if cash is None:
+        cash = _f(info.get("totalCash"))
+    return (total_debt or 0.0) - (cash or 0.0)

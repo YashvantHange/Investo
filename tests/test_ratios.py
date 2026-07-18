@@ -62,3 +62,49 @@ def test_implausible_multiples_dropped():
     r = compute_ratios("X.NS", info={"enterpriseToEbitda": 975.0, "trailingPE": 12.0}, financials=_financials())
     assert r.ev_ebitda is None   # 975 is out of bounds -> treated as unknown
     assert r.pe == 12.0
+
+
+# --------------------------------------------------------------------------------------
+# Net cash: cash - total debt, plus its size relative to market cap (FX-normalized so the
+# statement-currency cash and trading-currency market cap are comparable).
+# --------------------------------------------------------------------------------------
+def _bal(cash: float, debt: float) -> Financials:
+    return Financials(
+        ticker="X.NS", currency="INR",
+        income_statement=[FinancialPeriod(period="2024", values={"Total Revenue": 1000, "Net Income": 150})],
+        balance_sheet=[FinancialPeriod(period="2024", values={
+            "Cash And Cash Equivalents": cash, "Total Debt": debt, "Stockholders Equity": 900})],
+        cash_flow=[],
+    )
+
+
+def test_net_cash_from_statements_and_market_cap():
+    info = {"marketCap": 3000, "financialCurrency": "INR", "currency": "INR"}
+    r = compute_ratios("X.NS", info=info, financials=_bal(cash=500, debt=200))
+    assert abs(r.net_cash - 300) < 1e-6                      # 500 - 200
+    assert abs(r.net_cash_to_market_cap - 0.10) < 1e-6       # 300 / 3000, FX = 1
+
+
+def test_net_debt_when_debt_exceeds_cash_is_signed():
+    info = {"marketCap": 1000, "financialCurrency": "INR", "currency": "INR"}
+    r = compute_ratios("X.NS", info=info, financials=_bal(cash=200, debt=800))
+    assert abs(r.net_cash - (-600)) < 1e-6
+    assert abs(r.net_cash_to_market_cap - (-0.60)) < 1e-6
+
+
+def test_net_cash_to_market_cap_is_fx_consistent(monkeypatch):
+    # Statements in USD, trades in INR (the Infosys case): net cash must be converted with the
+    # same FX the DCF uses before dividing by the INR market cap.
+    monkeypatch.setattr("investo.sources.data.fx_rate", lambda frm, to: 80.0)
+    fin = _bal(cash=1100, debt=100)             # net cash = 1000 USD
+    info = {"marketCap": 800_000, "financialCurrency": "USD", "currency": "INR"}
+    r = compute_ratios("INFY.NS", info=info, financials=fin)
+    assert abs(r.net_cash - 1000) < 1e-6                     # statement currency (USD)
+    assert abs(r.net_cash_to_market_cap - 0.10) < 1e-6       # 1000 * 80 / 800_000
+
+
+def test_net_cash_ratio_none_without_market_cap():
+    r = compute_ratios("X.NS", info={"financialCurrency": "INR", "currency": "INR"},
+                       financials=_bal(cash=500, debt=200))
+    assert r.net_cash == 300
+    assert r.net_cash_to_market_cap is None
