@@ -228,4 +228,18 @@ def compute_ratios(
 
     merged["ticker"] = symbol.upper()
     merged["currency"] = info.get("financialCurrency") or info.get("currency")
+
+    # Net cash (cash - total debt) and its size relative to market cap. Both use the same
+    # net-debt source as the DCF equity bridge. Cash is in the statement currency while market
+    # cap is in the trading currency, so convert with the same FX the DCF uses (the Infosys
+    # USD-statements / INR-price case); leave the ratio None when FX or market cap is missing.
+    net_cash_stmt = -F.net_debt(financials, info)
+    stmt_ccy = info.get("financialCurrency") or info.get("currency")
+    price_ccy = info.get("currency") or stmt_ccy
+    fx = data.fx_rate(stmt_ccy, price_ccy)
+    mcap = info.get("marketCap")
+    merged["net_cash"] = net_cash_stmt
+    merged["net_cash_to_market_cap"] = (
+        (net_cash_stmt * fx) / mcap if (fx and mcap) else None
+    )
     return Ratios(**merged)
