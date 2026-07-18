@@ -54,9 +54,7 @@ def _from_info(info: dict[str, Any]) -> dict[str, float | None]:
         "peg": bounded("peg", g("trailingPegRatio") or g("pegRatio")),
         "ev_ebitda": bounded("ev_ebitda", g("enterpriseToEbitda")),
         "price_to_sales": bounded("price_to_sales", g("priceToSalesTrailing12Months")),
-        # Yahoo's dividendYield is inconsistent/occasionally garbage; keep only realistic
-        # equity yields (<=15%) and drop anomalies.
-        "dividend_yield": (lambda y: y if (y is not None and 0 <= y <= 0.15) else None)(g("dividendYield")),
+        "dividend_yield": _dividend_yield(g),
         "roe": g("returnOnEquity"),
         "roa": g("returnOnAssets"),
         "gross_margin": g("grossMargins"),
@@ -71,6 +69,44 @@ def _from_info(info: dict[str, Any]) -> dict[str, float | None]:
         "beta": g("beta"),
         "fcf": g("freeCashflow"),
     }
+
+
+# A dividend yield above this (as a fraction) is treated as garbage rather than a real yield.
+_MAX_DIV_YIELD = 0.30
+
+
+def _dividend_yield(g) -> float | None:
+    """Dividend yield as a decimal fraction (0.03 == 3%).
+
+    Yahoo's dividend fields are on inconsistent scales, and ``dividendYield`` specifically has
+    flipped between a fraction and a percent across yfinance versions (1.5.x returns a *percent*:
+    ``1.61`` means 1.61%). Rather than guess its scale we prefer the unambiguous fields:
+
+    1. ``trailingAnnualDividendYield`` — a decimal fraction, stable across versions.
+    2. ``dividendRate / price`` — a computed fraction (matches the trailing figure in practice).
+    3. ``dividendYield`` — last resort, normalized from percent to fraction.
+
+    Any candidate outside a sane 0-30% band is rejected as an anomaly.
+    """
+    def ok(frac: float | None) -> float | None:
+        return frac if (frac is not None and 0 < frac <= _MAX_DIV_YIELD) else None
+
+    tady = ok(g("trailingAnnualDividendYield"))  # already a fraction
+    if tady is not None:
+        return tady
+
+    rate, price = g("dividendRate"), g("currentPrice") or g("regularMarketPrice")
+    if rate is not None and price:
+        computed = ok(rate / price)
+        if computed is not None:
+            return computed
+
+    dy = g("dividendYield")
+    if dy is not None:
+        # yfinance >=1.x reports this as a percent; >1 is unambiguously a percent, and the
+        # current contract is percent throughout, so normalize by 100.
+        return ok(dy / 100.0)
+    return None
 
 
 def _tax_rate(inc_values: dict[str, float | None]) -> float:

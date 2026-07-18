@@ -370,6 +370,7 @@ def _valuation(r: AnalysisReport) -> str:
             ("ROE", pct(ra.roe)), ("ROCE", pct(ra.roce)),
             ("Operating margin", pct(ra.operating_margin)), ("Net margin", pct(ra.net_margin)),
             ("Debt/Equity", ratio(ra.debt_to_equity)), ("Current ratio", ratio(ra.current_ratio)),
+            ("Dividend yield", pct(ra.dividend_yield)),
         ]
         live = [(k, v) for k, v in pairs if v != EM_DASH]
         if live:

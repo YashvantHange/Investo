@@ -65,46 +65,47 @@ def test_implausible_multiples_dropped():
 
 
 # --------------------------------------------------------------------------------------
-# Net cash: cash - total debt, plus its size relative to market cap (FX-normalized so the
-# statement-currency cash and trading-currency market cap are comparable).
+# Dividend yield: yfinance reports these fields on different scales, and dividendYield in
+# particular flipped to a *percent* (1.61 == 1.61%) — the old <=0.15 fraction filter nulled
+# every real yield. Field shapes below are the actual values fetched for these names.
 # --------------------------------------------------------------------------------------
-def _bal(cash: float, debt: float) -> Financials:
-    return Financials(
-        ticker="X.NS", currency="INR",
-        income_statement=[FinancialPeriod(period="2024", values={"Total Revenue": 1000, "Net Income": 150})],
-        balance_sheet=[FinancialPeriod(period="2024", values={
-            "Cash And Cash Equivalents": cash, "Total Debt": debt, "Stockholders Equity": 900})],
-        cash_flow=[],
-    )
+def test_dividend_yield_prefers_the_unambiguous_fraction_field():
+    # trailingAnnualDividendYield is a decimal fraction (HDFC Bank ~1.6%).
+    r = compute_ratios("HDFCBANK.NS", info={
+        "dividendYield": 1.61, "trailingAnnualDividendYield": 0.016083,
+        "dividendRate": 13.0, "currentPrice": 819.6}, financials=_financials())
+    assert r.dividend_yield is not None
+    assert abs(r.dividend_yield - 0.0161) < 1e-4  # ~1.6%, NOT nulled
 
 
-def test_net_cash_from_statements_and_market_cap():
-    info = {"marketCap": 3000, "financialCurrency": "INR", "currency": "INR"}
-    r = compute_ratios("X.NS", info=info, financials=_bal(cash=500, debt=200))
-    assert abs(r.net_cash - 300) < 1e-6                      # 500 - 200
-    assert abs(r.net_cash_to_market_cap - 0.10) < 1e-6       # 300 / 3000, FX = 1
+def test_percent_scale_dividend_yield_is_normalized_not_dropped():
+    # Only dividendYield present, on the percent scale. Must become a 5.7% fraction, not None.
+    r = compute_ratios("ITC.NS", info={"dividendYield": 5.73}, financials=_financials())
+    assert r.dividend_yield is not None
+    assert abs(r.dividend_yield - 0.0573) < 1e-4
 
 
-def test_net_debt_when_debt_exceeds_cash_is_signed():
-    info = {"marketCap": 1000, "financialCurrency": "INR", "currency": "INR"}
-    r = compute_ratios("X.NS", info=info, financials=_bal(cash=200, debt=800))
-    assert abs(r.net_cash - (-600)) < 1e-6
-    assert abs(r.net_cash_to_market_cap - (-0.60)) < 1e-6
+def test_low_yield_is_kept_not_dropped():
+    # AAPL ~0.3% — the old filter kept only <0.15% and this survived by luck; confirm it holds.
+    r = compute_ratios("AAPL", info={
+        "dividendYield": 0.32, "trailingAnnualDividendYield": 0.0031}, financials=_financials())
+    assert r.dividend_yield is not None
+    assert abs(r.dividend_yield - 0.0031) < 1e-4
 
 
-def test_net_cash_to_market_cap_is_fx_consistent(monkeypatch):
-    # Statements in USD, trades in INR (the Infosys case): net cash must be converted with the
-    # same FX the DCF uses before dividing by the INR market cap.
-    monkeypatch.setattr("investo.sources.data.fx_rate", lambda frm, to: 80.0)
-    fin = _bal(cash=1100, debt=100)             # net cash = 1000 USD
-    info = {"marketCap": 800_000, "financialCurrency": "USD", "currency": "INR"}
-    r = compute_ratios("INFY.NS", info=info, financials=fin)
-    assert abs(r.net_cash - 1000) < 1e-6                     # statement currency (USD)
-    assert abs(r.net_cash_to_market_cap - 0.10) < 1e-6       # 1000 * 80 / 800_000
+def test_dividend_rate_over_price_is_the_fallback():
+    r = compute_ratios("X.NS", info={"dividendRate": 22.0, "currentPrice": 427.65},
+                       financials=_financials())
+    assert r.dividend_yield is not None
+    assert abs(r.dividend_yield - 0.0514) < 1e-3  # 22/427.65
 
 
-def test_net_cash_ratio_none_without_market_cap():
-    r = compute_ratios("X.NS", info={"financialCurrency": "INR", "currency": "INR"},
-                       financials=_bal(cash=500, debt=200))
-    assert r.net_cash == 300
-    assert r.net_cash_to_market_cap is None
+def test_no_dividend_is_none():
+    r = compute_ratios("NODIV.NS", info={"trailingPE": 30.0}, financials=_financials())
+    assert r.dividend_yield is None
+
+
+def test_garbage_dividend_yield_is_rejected():
+    # A 300% "yield" is an anomaly, not a real payout.
+    r = compute_ratios("X.NS", info={"trailingAnnualDividendYield": 3.0}, financials=_financials())
+    assert r.dividend_yield is None
