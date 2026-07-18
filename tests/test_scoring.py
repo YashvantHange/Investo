@@ -88,9 +88,10 @@ def test_balance_sheet_bucket_renamed():
 # economics justify it, but a low-quality name at the same multiple still floors.
 # --------------------------------------------------------------------------------------
 def _val_base(**over) -> Ratios:
-    d = dict(ticker="V", roe=0.15, roce=0.16, operating_margin=0.15, net_margin=0.10,
-             revenue_cagr_3y=0.10, eps_cagr_3y=0.10, revenue_growth_yoy=0.10,
-             pe=30.0, pb=6.0, ev_ebitda=18.0, peg=1.5, net_cash_to_market_cap=0.0)
+    d = {"ticker": "V", "roe": 0.15, "roce": 0.16, "operating_margin": 0.15,
+         "net_margin": 0.10, "revenue_cagr_3y": 0.10, "eps_cagr_3y": 0.10,
+         "revenue_growth_yoy": 0.10, "pe": 30.0, "pb": 6.0, "ev_ebitda": 18.0,
+         "peg": 1.5, "net_cash_to_market_cap": 0.0}
     d.update(over)
     return Ratios(**d)
 

@@ -225,7 +225,7 @@ def _kpi_cards(r: AnalysisReport) -> str:
         cls = "pos" if d.margin_of_safety > 0 else "neg"
         card("Margin of safety",
              f'<span class="delta {cls}">{esc(signed_pct(d.margin_of_safety, 0))}</span>')
-    gsig = None
+    gsig: str | None = None
     if r.growth_outlook and getattr(r.growth_outlook, "growth_signal", None):
         gsig = r.growth_outlook.growth_signal
     elif r.fundamental_trend and r.fundamental_trend.overall_health:
