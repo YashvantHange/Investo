@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import Financials, FinancialPeriod
+from ..models import FinancialPeriod, Financials
 
 
 def safe_div(numerator: float | None, denominator: float | None) -> float | None:

@@ -94,15 +94,22 @@ copy `.env.example` to `.env` and fill in any you have.
 ## Try it from the command line
 
 ```bash
-investo analyze "Infosys"
+investo analyze "Infosys"                                    # terminal report + auto HTML note
 investo analyze "Reliance Industries"
 investo analyze "Tata Motors"
 investo analyze AAPL
 investo analyze "Reliance Industries" --html reliance.html   # self-contained research note
 investo analyze "Infosys" --pdf infosys.pdf                  # PDF via headless Chrome/Edge
 investo analyze "Infosys" --json --html infy.html           # flags compose; nothing is discarded
+investo analyze "Infosys" --no-html                          # skip the automatic HTML note
 investo search "tata motors"
 ```
+
+Every `investo analyze` **writes a self-contained HTML research note automatically** (named
+`investo-<SYMBOL>-<date>.html` in the working directory) alongside its terminal output — the path is
+announced on stderr, so `--json` stays pipeable. Use `--no-html` to skip it, or `--html FILE` to
+choose the location. The MCP `analyze_company` tool does the same, returning the file in
+`html_report_path`; pass `emit_html=false` to suppress it.
 
 `--pdf` needs a Chromium-family browser: it uses a system **Chrome, Edge, Chromium or Brave** if one
 is installed (no setup), falls back to a managed Chromium via `pip install 'investo[pdf]' &&
@@ -186,7 +193,7 @@ of Reliance?"*
 | `compare_companies` | Head-to-head across 2–6 named tickers (not a curated group) |
 | `peer_group_directory` | List the curated peer groups and their members |
 | `export_report` | Render a full analysis to an HTML/PDF file (writes a file; path sandboxed) |
-| `analyze_company` | Everything above bundled into one report (with a confidence/provenance evidence layer) |
+| `analyze_company` | Everything above bundled into one report (with a confidence/provenance evidence layer); also auto-writes an HTML note and returns its `html_report_path` unless `emit_html=false` |
 | `get_sec_facts` | SEC EDGAR cross-check (US/ADR only) |
 
 ---

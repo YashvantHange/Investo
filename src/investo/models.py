@@ -680,6 +680,12 @@ class AnalysisReport(_Base):
     growth_driver_hints: list[str] = Field(default_factory=list)
     llm_guidance: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    # Auto-export metadata: set when analyze_company writes an HTML report so a client can open
+    # it without a second tool call. Optional — the report is complete without them.
+    html_report_path: str | None = None
+    generated_at: str | None = None      # ISO-8601 UTC timestamp of when the report was written
+    investo_version: str | None = None
+    html_bytes: int | None = None
 
 
 # --------------------------------------------------------------------------------------

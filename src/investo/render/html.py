@@ -30,6 +30,52 @@ _TONE_CLASS = {
     "none": "good", "low": "good", "high": "bad", "severe": "bad", "critical": "bad",
 }
 
+# Single source of truth for a verdict word -> semantic badge colour. Used by the masthead, the
+# KPI cards and any inline status, so "cheap" is the same green everywhere and colour is never
+# chosen at a call site. Unknown words fall back to a neutral badge (never a buy/sell colour).
+_KIND = {
+    "excellent": "success", "good": "success", "strong": "success", "bullish": "success",
+    "positive": "success", "cheap": "success", "undervalued": "success", "none": "success",
+    "pass": "success",
+    "fair": "neutral", "fairly valued": "neutral", "neutral": "neutral", "average": "neutral",
+    "moderate": "warn", "cautious": "warn", "weak": "warn", "expensive": "warn", "medium": "warn",
+    "elevated": "warn", "warn": "warn", "rich": "warn",
+    "poor": "danger", "bearish": "danger", "overvalued": "danger", "high": "danger",
+    "severe": "danger", "critical": "danger", "fail": "danger",
+}
+# Risk severity reads inverted: "low" risk is good, not weak.
+_RISK_KIND = {"low": "success", "medium": "warn", "moderate": "warn", "high": "danger",
+              "severe": "danger", "critical": "danger", "none": "success"}
+
+
+def _kind(word: str | None, *, table: dict[str, str] = _KIND) -> str:
+    """Semantic badge class for a verdict word; neutral when unrecognised."""
+    return table.get((word or "").strip().lower(), "neutral")
+
+
+def _score_band(total: float | None) -> str:
+    """Colour band for a 0-100 rating. A quality signal, not a buy/sell call."""
+    if total is None:
+        return "neutral"
+    if total >= 70:
+        return "success"
+    if total >= 55:
+        return "info"
+    if total >= 40:
+        return "warn"
+    return "danger"
+
+
+def _badge(text: str, kind: str) -> str:
+    return f'<span class="badge {kind}">{esc(text)}</span>'
+
+
+def _data_table(caption: str, head: str, body: str) -> str:
+    """A data table with an accessible caption, wrapped so it scrolls on a narrow screen."""
+    return (f'<div class="table-wrap"><table class="data">'
+            f'<caption class="vh">{esc(caption)}</caption>'
+            f"<thead>{head}</thead><tbody>{body}</tbody></table></div>")
+
 
 def render_html(report: AnalysisReport, *, standalone: bool = True) -> str:
     """Render the report as a research note. Full document unless ``standalone=False``."""
@@ -40,16 +86,29 @@ def render_html(report: AnalysisReport, *, standalone: bool = True) -> str:
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<meta name="description" content="{esc(_description(report))}">'
         f"<title>{esc(name)} — Investo equity research</title>"
         f"<style>{CSS}</style></head><body>{body}</body></html>"
     )
+
+
+def _description(r: AnalysisReport) -> str:
+    """A one-line summary for the document's <meta description> (never a buy/sell call)."""
+    bits = [f"Investo equity research on {_name(r)}"]
+    if r.score and r.score.total is not None:
+        bits.append(f"rated {r.score.total:.0f}/100")
+    if r.thesis and r.thesis.verdict:
+        bits.append(r.thesis.verdict)  # esc() cleans + escapes the whole line at the call site
+    return " — ".join(bits) + ". Research and education only, not investment advice."
 
 
 # --------------------------------------------------------------------------------------
 # Document
 # --------------------------------------------------------------------------------------
 def _document(r: AnalysisReport) -> str:
-    parts = [_runhead(r), _masthead(r), _keydata(r)]
+    # Render sections first so the table of contents lists only what actually appears (sections
+    # with no evidence render nothing and must not show up as a dead link).
+    rendered: list[tuple] = []
     for section in SECTIONS:
         renderer = HTML_RENDERERS.get(section.key)
         if renderer is None:
@@ -57,6 +116,10 @@ def _document(r: AnalysisReport) -> str:
         inner = renderer(r)
         if not inner:
             continue  # no evidence -> no section, rather than an empty heading
+        rendered.append((section, inner))
+
+    parts = [_masthead(r), _kpi_cards(r), _keydata(r), _toc([s for s, _ in rendered])]
+    for section, inner in rendered:
         parts.append(
             f'<section class="sec" id="s{section.number}">'
             f'<h2><span class="n">{section.number}</span>{esc(section.title)}</h2>'
@@ -64,8 +127,20 @@ def _document(r: AnalysisReport) -> str:
         )
     parts.append(_footnotes(r))
     parts.append(_disclaimer())
-    parts.append(_runfoot(r))
-    return f'<main class="paper">{"".join(p for p in parts if p)}</main>'
+    parts.append(_colophon(r))
+    content = "".join(p for p in parts if p)
+    # A single-column table with repeating header/footer groups is the one reliable way to get
+    # per-page running furniture out of Chromium's print engine: the browser reserves the group
+    # height on every page. (A position:fixed header either lands in the wrong margin or, once the
+    # page fills, overlaps the body — space it can't reserve per page.) On screen the groups are
+    # hidden, so the table is invisible scaffolding.
+    return (
+        '<main class="paper"><table class="page">'
+        f'<thead class="page-head"><tr><td>{_runhead(r)}</td></tr></thead>'
+        f'<tbody><tr><td>{content}</td></tr></tbody>'
+        f'<tfoot class="page-foot"><tr><td>{_runfoot(r)}</td></tr></tfoot>'
+        "</table></main>"
+    )
 
 
 def _name(r: AnalysisReport) -> str:
@@ -96,23 +171,103 @@ def _masthead(r: AnalysisReport) -> str:
                         (p.exchange if p else None)) if x]
     if r.industry and r.industry.peer_group:
         bits.insert(0, r.industry.peer_group)
-    verdict = ""
-    if r.thesis and r.thesis.verdict:
-        verdict = f'<span class="verdict-line">{esc(r.thesis.verdict)}</span>'
+    sectors = f'<p class="sectors">{esc(" · ".join(bits))}</p>' if bits else ""
     stand = ""
     if r.thesis and r.thesis.summary:
         stand = f'<p class="standfirst">{esc(r.thesis.summary)}</p>'
     return (
         '<header class="masthead">'
-        f'<div class="eyebrow"><span>Investo equity research · {esc(_today())}</span>{verdict}</div>'
+        '<div class="mast-top"><span class="brand">Investo · Equity Research</span>'
+        f'<span class="mast-date">{esc(_today())}</span></div>'
+        '<div class="mast-main"><div class="mast-id">'
         f'<h1>{esc(_name(r))}<span class="ticker">{esc(_symbol(r))}</span></h1>'
-        f'<p class="small muted" style="margin:0">{esc(" · ".join(bits))}</p>'
-        f"{stand}</header>"
+        f"{sectors}{stand}</div>{_rating_block(r)}</div></header>"
     )
 
 
+def _rating_block(r: AnalysisReport) -> str:
+    """The masthead's headline judgement: the 0-100 rating and its verdict, colour-banded."""
+    if not r.score or r.score.total is None:
+        return ""
+    band = _score_band(r.score.total)
+    verdict = (r.thesis.verdict if r.thesis and r.thesis.verdict else None) or r.score.verdict
+    vhtml = f'<div class="rating-verdict">{esc(verdict)}</div>' if verdict else ""
+    return (
+        f'<div class="rating-block {band}"><div class="rk">Investo rating</div>'
+        f'<div class="rating-score">{r.score.total:.0f}<span class="out">/100</span></div>'
+        f"{vhtml}</div>"
+    )
+
+
+def _kpi_cards(r: AnalysisReport) -> str:
+    """A row of assessment cards up top — quality, valuation, value, growth, leverage."""
+    cards: list[str] = []
+
+    def card(label: str, value_html: str, sub_html: str = "") -> None:
+        sub = f'<div class="kpi-sub">{sub_html}</div>' if sub_html else ""
+        cards.append(f'<div class="kpi"><div class="kpi-label">{esc(label)}</div>'
+                     f'<div class="kpi-value">{value_html}</div>{sub}</div>')
+
+    t, d, ra = r.thesis, r.dcf, r.ratios
+    cur = r.profile.currency if r.profile else None
+    if t and t.quality:
+        card("Quality", _badge(t.quality, _kind(t.quality)))
+    if t and t.valuation_stance:
+        card("Valuation", _badge(t.valuation_stance, _kind(t.valuation_stance)))
+    if d and d.intrinsic_value_per_share is not None:
+        sub = ""
+        if d.margin_of_safety is not None:
+            up = d.margin_of_safety > 0
+            sub = _badge("undervalued" if up else "premium to value",
+                         "success" if up else "danger")
+        card("Intrinsic value (DCF)", esc(price(d.intrinsic_value_per_share, cur)), sub)
+    if d and d.margin_of_safety is not None:
+        cls = "pos" if d.margin_of_safety > 0 else "neg"
+        card("Margin of safety",
+             f'<span class="delta {cls}">{esc(signed_pct(d.margin_of_safety, 0))}</span>')
+    gsig: str | None = None
+    if r.growth_outlook and getattr(r.growth_outlook, "growth_signal", None):
+        gsig = r.growth_outlook.growth_signal
+    elif r.fundamental_trend and r.fundamental_trend.overall_health:
+        gsig = r.fundamental_trend.overall_health
+    if gsig:
+        card("Growth", _badge(gsig, _kind(gsig)))
+    if ra and ra.debt_to_equity is not None:
+        de = ra.debt_to_equity
+        word, kind = (("low", "success") if de < 0.5
+                      else ("moderate", "warn") if de < 1.0 else ("high", "danger"))
+        card("Debt / equity", esc(ratio(ra.debt_to_equity)), _badge(word, kind))
+    if not cards:
+        return ""
+    return f'<section class="kpis" aria-label="Key indicators">{"".join(cards)}</section>'
+
+
+def _toc(sections: list) -> str:
+    """A contents list for longer notes; skipped when there is too little to navigate."""
+    if len(sections) < 3:
+        return ""
+    items = "".join(
+        f'<li><a href="#s{s.number}"><span class="toc-n">{s.number}</span>'
+        f"{esc(s.title)}</a></li>" for s in sections)
+    return ('<nav class="toc" aria-label="Contents"><div class="toc-h">Contents</div>'
+            f"<ol>{items}</ol></nav>")
+
+
+def _colophon(r: AnalysisReport) -> str:
+    """A generation stamp, the way a real research note carries a print date and version."""
+    from .. import __version__
+
+    bits = [f"Generated by Investo v{__version__}", _today()]
+    if r.evidence and r.evidence.as_of:
+        bits.append(f"data as of {r.evidence.as_of}")
+    return f'<div class="colophon">{esc(" · ".join(bits))}</div>'
+
+
 def _keydata(r: AnalysisReport) -> str:
+    # Market facts only — the rating and margin of safety live in the rating block / KPI cards
+    # above, so this strip doesn't repeat them.
     p = r.profile
+    ra = r.ratios
     cur = p.currency if p else None
     items: list[tuple[str, str]] = []
     if p and p.current_price is not None:
@@ -122,12 +277,10 @@ def _keydata(r: AnalysisReport) -> str:
     if p and p.fifty_two_week_low is not None and p.fifty_two_week_high is not None:
         items.append(("52-week range", f"{num(p.fifty_two_week_low, 0)}–"
                                        f"{num(p.fifty_two_week_high, 0)}"))
-    if r.score:
-        items.append(("Investo rating", f"{r.score.total:.0f}/100"))
-    if r.ratios and r.ratios.pe is not None:
-        items.append(("P/E", ratio(r.ratios.pe)))
-    if r.dcf and r.dcf.margin_of_safety is not None:
-        items.append(("Margin of safety", signed_pct(r.dcf.margin_of_safety, 0)))
+    if ra and ra.pe is not None:
+        items.append(("P/E", ratio(ra.pe)))
+    if ra and ra.dividend_yield is not None:
+        items.append(("Dividend yield", pct(ra.dividend_yield)))
     if not items:
         return ""
     cells = "".join(f'<div class="kd"><dt>{esc(k)}</dt><dd>{esc(v)}</dd></div>' for k, v in items)
@@ -199,8 +352,10 @@ def _score(r: AnalysisReport) -> str:
         f'<td class="num">{b.score:.1f}/{b.weight:.0f}</td>'
         f'<td class="reason">{esc(b.rationale or "")}</td></tr>'
         for b in s.buckets)
-    table = (f'<table class="data"><thead><tr><th>Bucket</th><th class="num">Score</th>'
-             f"<th>Rationale</th></tr></thead><tbody>{reasons}</tbody></table>")
+    table = _data_table(
+        "Score decomposition by bucket",
+        '<tr><th>Bucket</th><th class="num">Score</th><th>Rationale</th></tr>',
+        reasons)
     lede = (f'<p class="lede"><strong>{s.total:.1f} / 100</strong> — {esc(s.verdict)}.</p>')
     return lede + _exhibit("Exhibit 1", chart) + table
 
@@ -242,11 +397,11 @@ def _relative(r: AnalysisReport) -> str:
                  f'{metric(m.unit, m.delta) if m.delta is not None else EM_DASH}</td>'
                  f'<td><span class="st {tone(m.percentile)}">'
                  f'{esc(_band_text(m.percentile))}</span></td></tr>')
-    table = (
-        '<table class="data"><thead><tr><th>Metric</th><th class="num">Company</th>'
-        '<th class="num">Industry</th><th class="num">Delta</th><th>Standing</th>'
-        f"</tr></thead><tbody>{body}</tbody></table>"
-    )
+    table = _data_table(
+        "Company versus industry by metric",
+        '<tr><th>Metric</th><th class="num">Company</th><th class="num">Industry</th>'
+        '<th class="num">Delta</th><th>Standing</th></tr>',
+        body)
     note = _h2note(f"{n_peers} peers · {rel.basis}")
     return note + _exhibit("Exhibit 2", chart) + table
 
@@ -291,11 +446,11 @@ def _peers(r: AnalysisReport) -> str:
             f'<td class="num">{ratio(row.pe)}</td>'
             f'<td class="num">{ratio(row.ev_ebitda)}</td></tr>'
         )
-    table = (
-        '<table class="data"><thead><tr><th>Company</th><th class="num">Market cap</th>'
-        '<th class="num">Net margin</th><th class="num">Rev growth</th><th class="num">P/E</th>'
-        f'<th class="num">EV/EBITDA</th></tr></thead><tbody>{body}</tbody></table>'
-    )
+    table = _data_table(
+        "Peer group comparison",
+        '<tr><th>Company</th><th class="num">Market cap</th><th class="num">Net margin</th>'
+        '<th class="num">Rev growth</th><th class="num">P/E</th><th class="num">EV/EBITDA</th></tr>',
+        body)
     obs = "".join(f"<li>{esc(s)}</li>" for s in pc.summary)
     obs_html = f'<ul class="plain">{obs}</ul>' if obs else ""
     note = _h2note(pc.peer_group_label) if pc.peer_group_label else ""
@@ -405,9 +560,10 @@ def _growth(r: AnalysisReport) -> str:
         f'<td class="num">{(d.contribution_pct or 0):.0%}</td>'
         f'<td class="reason">{esc(", ".join(d.risks[:2]))}</td></tr>'
         for d in g.drivers)
-    blocks.append('<table class="data"><thead><tr><th>Driver</th>'
-                  '<th class="num">Contribution</th><th>Key risks</th></tr></thead>'
-                  f"<tbody>{body}</tbody></table>")
+    blocks.append(_data_table(
+        "Growth drivers by contribution",
+        '<tr><th>Driver</th><th class="num">Contribution</th><th>Key risks</th></tr>',
+        body))
     if g.catalysts:
         items = "".join(f'<li><span class="yr">{esc(c.year or "")}</span>'
                         f"<span>{esc(c.event)}</span></li>"
@@ -437,9 +593,11 @@ def _trend(r: AnalysisReport) -> str:
                  f'{esc(m.health or "")}</span></td>'
                  f'<td class="num">{signed_pct(m.cagr)}</td></tr>')
     note = _h2note(ft.overall_health) if ft.overall_health else ""
-    return note + ('<table class="data"><thead><tr><th>Metric</th><th>Trend</th>'
-                   '<th>Direction</th><th>Health</th><th class="num">CAGR</th>'
-                   f"</tr></thead><tbody>{body}</tbody></table>")
+    return note + _data_table(
+        "Fundamentals trend by metric",
+        '<tr><th>Metric</th><th>Trend</th><th>Direction</th><th>Health</th>'
+        '<th class="num">CAGR</th></tr>',
+        body)
 
 
 def _buffett(r: AnalysisReport) -> str:
@@ -459,9 +617,10 @@ def _buffett(r: AnalysisReport) -> str:
     if b.weighted_score is not None:
         lede = (f'<p class="lede"><strong>{b.weighted_score:.0f} / 100</strong>'
                 f'{f" — {esc(b.verdict)}" if b.verdict else ""}.</p>')
-    return lede + ('<table class="data"><thead><tr><th>Status</th><th>Criterion</th>'
-                   '<th>Reason</th><th class="num">Conf.</th></tr></thead>'
-                   f"<tbody>{body}</tbody></table>")
+    return lede + _data_table(
+        "Buffett checklist",
+        '<tr><th>Status</th><th>Criterion</th><th>Reason</th><th class="num">Conf.</th></tr>',
+        body)
 
 
 def _shareholding(r: AnalysisReport) -> str:
@@ -519,8 +678,10 @@ def _red_flags(r: AnalysisReport) -> str:
         f'</span></td><td class="name">{esc(f.issue)}</td>'
         f'<td class="reason">{esc(f.detail or "")}</td></tr>'
         for f in rf.flags)
-    return head + ('<table class="data"><thead><tr><th>Severity</th><th>Issue</th>'
-                   f"<th>Detail</th></tr></thead><tbody>{body}</tbody></table>")
+    return head + _data_table(
+        "Red flags by severity",
+        '<tr><th>Severity</th><th>Issue</th><th>Detail</th></tr>',
+        body)
 
 
 _SWOT_TITLES = {"strength": "Strengths", "weakness": "Weaknesses",
@@ -549,8 +710,10 @@ def _news(r: AnalysisReport) -> str:
         f'<td class="name">{esc(i.title)}</td>'
         f'<td class="muted small">{esc(i.category)}</td></tr>'
         for i in nf.items[:12])
-    return ('<table class="data"><thead><tr><th class="num">Date</th><th>Headline</th>'
-            f"<th>Category</th></tr></thead><tbody>{body}</tbody></table>")
+    return _data_table(
+        "Recent developments",
+        '<tr><th class="num">Date</th><th>Headline</th><th>Category</th></tr>',
+        body)
 
 
 def _warnings(r: AnalysisReport) -> str:
