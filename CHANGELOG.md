@@ -31,6 +31,17 @@ All notable changes to Investo are documented here. The format follows
   `investo.export` (`save_html`, `save_pdf`, `find_browser`, `html_to_pdf`).
 
 ### Changed
+- **Quality-aware scoring — cash-rich, fairly-priced compounders are no longer under-rated.** The
+  valuation bucket was a pure cheapness screen (P/E · P/B · EV/EBITDA scored strictly
+  lower-is-better with hard ceilings), so a high-quality company at a fair premium lost almost the
+  whole bucket and a large net-cash balance sheet earned nothing. Now the multiple ceilings widen
+  quadratically with a four-signal **quality factor** (ROE, ROCE, operating margin, revenue+EPS-CAGR
+  growth); **net cash** is surfaced on `Ratios` (FX-normalized against market cap) and rewarded both
+  by lowering the effective equity multiple and by a signed term in the renamed **Balance Sheet**
+  bucket (which now also penalizes net debt); DCF is a 30% cross-check recentred so fair value scores
+  neutral; and the weights lean toward durable quality (Valuation 15→10, Profitability 15→17,
+  Competitive Moat 10→12, Balance Sheet 10→11). Rank order is preserved (Spearman ≈ 0.99 on a
+  synthetic basket) — the shift is targeted, not blanket inflation.
 - **`investo analyze` output flags now compose.** `--json`, `--html` and `--pdf` each do one thing
   and can be combined; previously `--html` silently suppressed `--json`. Bare `--html`/`--pdf` write
   `investo-<SYMBOL>-<YYYY-MM-DD>.<ext>`; parent directories are created; a PDF-engine failure exits
