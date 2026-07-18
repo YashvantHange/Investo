@@ -73,6 +73,17 @@ def test_windows_style_path_becomes_a_percent_escaped_file_uri():
     assert "%20" in uri  # the space is escaped, not left raw
 
 
+def test_file_url_is_an_absolute_clickable_uri(tmp_path):
+    # The clickable location returned to the user: absolute, percent-escaped, opens on click.
+    target = tmp_path / "a b" / "investo-report.html"
+    target.parent.mkdir(parents=True)
+    target.write_text("<html></html>", encoding="utf-8")
+    url = export.file_url(target)
+    assert url.startswith("file:///")
+    assert "%20" in url  # the space in the directory name is escaped
+    assert url.endswith("investo-report.html")
+
+
 # --------------------------------------------------------------------------------------
 # Headless Chrome path — stubbed subprocess, never a real launch
 # --------------------------------------------------------------------------------------

@@ -316,17 +316,22 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
         print(json.dumps(report.model_dump(), indent=2, default=str))
 
     if want_html:
-        from .export import save_html
+        from .export import file_url, save_html
         out = save_html(report, args.html)  # args.html is None when the flag is bare
         print(f"Wrote HTML report to {out}")
+        print(f"  Open: {file_url(out)}")  # clickable — opens in the browser on click
 
     if want_pdf:
-        from .export import PdfExportError, save_pdf
+        from .export import PdfExportError, file_url, save_pdf
         try:
             out, engine, warnings = save_pdf(report, args.pdf)
             for w in warnings:
                 print(f"warning: {w}", file=sys.stderr)
             print(f"Wrote PDF report to {out}  ({engine})")
+            print(f"  Open: {file_url(out)}")  # the pdf
+            sidecar = out.with_suffix(".html")
+            if sidecar.exists():
+                print(f"  HTML: {file_url(sidecar)}")  # the html written alongside it
         except PdfExportError as exc:
             # The .html sidecar is still on disk; a failed export is still a failed command.
             print(f"error: PDF export failed.\n{exc}", file=sys.stderr)
@@ -336,9 +341,10 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     # (--html / --pdf already produce a document) or opted out with --no-html. The announcement
     # goes to stderr so `investo analyze X --json` stays pipeable on stdout.
     if not (want_html or want_pdf or getattr(args, "no_html", False)):
-        from .export import save_html
+        from .export import file_url, save_html
         out = save_html(report, None)
         print(f"Wrote HTML report to {out}", file=sys.stderr)
+        print(f"  Open: {file_url(out)}", file=sys.stderr)
 
     if not (args.json or want_html or want_pdf):
         print(render_report(report))

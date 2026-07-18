@@ -548,12 +548,25 @@ class AiSignals(_Base):
 # --------------------------------------------------------------------------------------
 # Analysis tools: export, technicals, DCF sensitivity, multi-company compare
 # --------------------------------------------------------------------------------------
+class ExportedFile(_Base):
+    """One written artifact and how to open it."""
+
+    path: str
+    file_url: str  # clickable file:// URL — opens the file in the default app on click
+    format: Literal["pdf", "html"]
+    bytes: int = 0
+
+
 class ExportResult(_Base):
     path: str
+    file_url: str | None = None  # clickable file:// URL of `path`
     format: Literal["pdf", "html"]
     bytes: int = 0
     engine: str | None = None  # e.g. "chrome.exe (headless)" | "playwright-chromium"
     warnings: list[str] = Field(default_factory=list)
+    # Every artifact this call wrote, primary first — a PDF export also lists its HTML sidecar,
+    # so a caller has a clickable location for the html and the pdf.
+    files: list[ExportedFile] = Field(default_factory=list)
 
 
 class TechnicalSnapshot(_Base):
@@ -683,6 +696,7 @@ class AnalysisReport(_Base):
     # Auto-export metadata: set when analyze_company writes an HTML report so a client can open
     # it without a second tool call. Optional — the report is complete without them.
     html_report_path: str | None = None
+    html_report_url: str | None = None   # clickable file:// URL of html_report_path
     generated_at: str | None = None      # ISO-8601 UTC timestamp of when the report was written
     investo_version: str | None = None
     html_bytes: int | None = None
