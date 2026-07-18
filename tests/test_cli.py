@@ -58,6 +58,14 @@ def test_no_html_flag_suppresses_the_automatic_report(tmp_path, monkeypatch, cap
     assert not list(tmp_path.glob("*.html")), "--no-html must write no HTML file"
 
 
+def test_open_flag_is_accepted_and_still_writes_the_report(tmp_path, monkeypatch, capsys):
+    # --open opens the report in the default app; under pytest open_file is a guarded no-op, so the
+    # command succeeds without launching anything and the file is still written.
+    monkeypatch.chdir(tmp_path)
+    assert _run(["analyze", "KPIT", "--open"]) == 0
+    assert list(tmp_path.glob("investo-KPITTECH.NS-*.html"))
+
+
 def test_explicit_pdf_does_not_also_auto_write_html(tmp_path, monkeypatch, capsys):
     # --pdf already produces a document (and its own .html sidecar); don't also drop a second
     # auto-HTML in the cwd.

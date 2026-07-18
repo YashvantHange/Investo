@@ -137,14 +137,15 @@ def _attach_html_report(report: AnalysisReport) -> None:
     from datetime import datetime, timezone
 
     from . import __version__
-    from .export import default_filename, file_url, save_html
+    from .export import default_filename, file_url, preview_url, save_html
 
     report.generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     report.investo_version = __version__
     try:
         out = save_html(report, _safe_export_path(default_filename(report, "html"), "html"))
         report.html_report_path = str(out)
-        report.html_report_url = file_url(out)  # clickable — opens the report on click
+        report.html_report_url = file_url(out)          # file:// location
+        report.html_report_open_url = preview_url(out)  # http link that opens it on click
         report.html_bytes = out.stat().st_size
     except Exception as exc:  # noqa: BLE001 — the convenience export must never sink the analysis
         _log.warning("automatic HTML export failed: %s", exc)
@@ -413,17 +414,18 @@ def export_report(
     a caller cannot write outside it.
     """
     from .analysis.report import analyze
-    from .export import PdfExportError, file_url, html_to_pdf, save_html
+    from .export import PdfExportError, file_url, html_to_pdf, preview_url, save_html
 
     def _exported(p, fmt: Literal["pdf", "html"]) -> ExportedFile:
-        return ExportedFile(path=str(p), file_url=file_url(p), format=fmt, bytes=p.stat().st_size)
+        return ExportedFile(path=str(p), file_url=file_url(p), open_url=preview_url(p),
+                            format=fmt, bytes=p.stat().st_size)
 
     out = _safe_export_path(path, format)
     report = analyze(query, market)
 
     if format == "html":
         f = _exported(save_html(report, out), "html")
-        return ExportResult(path=f.path, file_url=f.file_url, format="html",
+        return ExportResult(path=f.path, file_url=f.file_url, open_url=f.open_url, format="html",
                             bytes=f.bytes, engine="renderer", files=[f])
 
     from .render import render_html
@@ -434,10 +436,10 @@ def export_report(
         engine, warnings = html_to_pdf(html, out)
     except PdfExportError as exc:
         raise ValueError(f"{exc}") from exc
-    # Return a clickable location for the pdf and its html sidecar (primary first).
+    # Return the location and an open link for the pdf and its html sidecar (primary first).
     pdf, html_side = _exported(out, "pdf"), _exported(sidecar, "html")
-    return ExportResult(path=pdf.path, file_url=pdf.file_url, format="pdf", bytes=pdf.bytes,
-                        engine=engine, warnings=warnings, files=[pdf, html_side])
+    return ExportResult(path=pdf.path, file_url=pdf.file_url, open_url=pdf.open_url, format="pdf",
+                        bytes=pdf.bytes, engine=engine, warnings=warnings, files=[pdf, html_side])
 
 
 @mcp.tool(title="Full analysis", annotations=_WRITE)

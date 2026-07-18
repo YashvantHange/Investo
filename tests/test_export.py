@@ -73,8 +73,8 @@ def test_windows_style_path_becomes_a_percent_escaped_file_uri():
     assert "%20" in uri  # the space is escaped, not left raw
 
 
-def test_file_url_is_an_absolute_clickable_uri(tmp_path):
-    # The clickable location returned to the user: absolute, percent-escaped, opens on click.
+def test_file_url_is_an_absolute_location_uri(tmp_path):
+    # The on-disk location returned to the user: absolute, percent-escaped file:// URI.
     target = tmp_path / "a b" / "investo-report.html"
     target.parent.mkdir(parents=True)
     target.write_text("<html></html>", encoding="utf-8")
@@ -82,6 +82,29 @@ def test_file_url_is_an_absolute_clickable_uri(tmp_path):
     assert url.startswith("file:///")
     assert "%20" in url  # the space in the directory name is escaped
     assert url.endswith("investo-report.html")
+
+
+def test_preview_url_serves_the_report_over_loopback_http(tmp_path):
+    # A file:// link won't open from a chat/webview; this http://127.0.0.1 one does. Prove it by
+    # fetching the report back over the loopback preview server.
+    import urllib.request
+
+    target = tmp_path / "investo-report.html"
+    target.write_text("<html>hello sigachi</html>", encoding="utf-8")
+    url = export.preview_url(target)
+    assert url and url.startswith("http://127.0.0.1:")
+    assert url.endswith("investo-report.html")
+    with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310 — loopback, our own server
+        assert resp.status == 200
+        assert b"hello sigachi" in resp.read()
+
+
+def test_open_file_is_a_guarded_no_op_under_tests(tmp_path):
+    # PYTEST_CURRENT_TEST is set during tests, so open_file must not launch anything (and returns
+    # False rather than raising) — no browser windows during the suite.
+    target = tmp_path / "r.html"
+    target.write_text("x", encoding="utf-8")
+    assert export.open_file(target) is False
 
 
 # --------------------------------------------------------------------------------------
