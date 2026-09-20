@@ -12,4 +12,4 @@ import logging
 # Library logger stays silent until an entry point calls configure_logging().
 logging.getLogger("investo").addHandler(logging.NullHandler())
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

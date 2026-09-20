@@ -4,9 +4,10 @@ All notable changes to Investo are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-09-20
 
 ### Added
+
 - **Five new MCP tools** (23 → 28):
   - `technical_snapshot` — price/momentum context (50/200-day moving averages + golden/death cross,
     RSI(14) with Wilder's smoothing, annualized volatility, 1-year max drawdown, beta vs the market
@@ -29,8 +30,67 @@ All notable changes to Investo are documented here. The format follows
   while still leaving the `.html` on disk. `INVESTO_CHROME` overrides browser discovery;
   `INVESTO_PDF_TIMEOUT` and `INVESTO_EXPORT_DIR` are configurable. The engine lives in
   `investo.export` (`save_html`, `save_pdf`, `find_browser`, `html_to_pdf`).
+- **Automotive ER&D peer group** (`KPITTECH.NS`, `TATAELXSI.NS`, `TATATECH.NS`, `LTTS.NS`,
+  `CYIENT.NS`) — the market treats these as one cohort, and Yahoo's "Information Technology
+  Services" classification points the entire analysis at the wrong drivers, CAGR and risks. Plus
+  `auto_components`, `hospitals_diagnostics` and `capital_goods_defence`.
+- **Peer-resolution ladder** (`peers.resolve_peer_group`): curated membership → keyword match on
+  Yahoo's industry/sector → Finnhub → none. The resulting `PeerBasis` travels on `PeerComparison`,
+  `RelativeComparison` and `IndustryIntelligence`, so a guessed cohort can never be presented with
+  the confidence of a deliberate one.
+- **Three more relative metrics** — EV/EBITDA, ROA and P/S (7 → 10). Coverage is measured against
+  the metrics the peer set can actually rank on, so adding a metric Indian peers rarely report
+  doesn't silently mark every Indian company down.
+- **A peer group can reframe the industry narrative**, not just its outlook and CAGR: KPIT's
+  sub-domains are now SDV, ADAS and EV powertrain rather than "IT services & outsourcing". Yahoo's
+  raw `industry` string is preserved alongside — it's a fact, and hiding the disagreement would be
+  worse than showing it.
+- **`docs/confidence.md`** — worked examples, the reasoning behind each factor, and the known
+  limitations of the confidence model.
+- `evidence.confidence(reliability_factor=…)` for module-specific discounts, and per-group
+  provenance (`version`, `updated_at`, `source`) in `peers.yaml`.
+- **Listed in the [Cursor Directory](https://cursor.directory)** with a one-click "Add to Cursor"
+  install. The recommended config is now **`uvx --from git+…/Investo investo-mcp`** — it builds
+  & runs Investo straight from GitHub with **no clone and no venv** (requires `uv`), so it works
+  from a global config for any user. The `python scripts/mcp_launcher.py` launcher remains the
+  from-source option for project-scoped setups. Verified end-to-end via an MCP stdio handshake.
+- **Rate limiting** (`sources/ratelimit.py`): per-provider minimum call interval + an Alpha
+  Vantage daily cap that falls back to Yahoo when exhausted; tunable via
+  `INVESTO_RATE_MIN_INTERVAL` / `INVESTO_AV_DAILY_CAP`.
+- **Application logging** to **stderr** (stdout stays clean for MCP JSON-RPC), controlled by
+  `INVESTO_LOG_LEVEL`; logs tool calls, provider selection, timings and rate-limit events.
+- **Stronger input validation**: `market`/`period` are enums and `get_news` `limit` is bounded
+  (1–50) in the tool JSON schemas; company name/ticker is sanitized (non-empty, length-capped).
+- **Progress notifications** during `analyze_company` (runs off the event loop; emits
+  resolve → fetch → compute → score → done).
+- Typed `SecFacts` / `ProviderStatus` models so **all 15 tools expose a precise output schema**.
+- **Provider facade** (`sources/data.py`): licensed keyed APIs (Alpha Vantage / FMP) are the
+  primary source when a key is set, with Yahoo Finance as the zero-config fallback; a
+  `provider_status` tool reports the active mode.
+- **MCP polish**: all tools carry `readOnlyHint` / `openWorldHint` annotations, human titles,
+  and typed pydantic returns so clients get an output schema + structured content.
+- **Packaging & distribution**: PyPI-ready metadata (classifiers, `py.typed`, bundled data),
+  `server.json` (MCP registry), `manifest.json` + build scripts (`.mcpb` Claude Desktop
+  bundle), CI (ruff/mypy/pytest on 3.10–3.12 × Linux/Windows) and a Trusted-Publishing
+  release workflow.
+- **Docs**: `SECURITY.md` (data-flow & privacy disclosure), `PUBLISHING.md`, `CONTRIBUTING.md`,
+  README "Data sources & legal" + "Privacy" sections and badges.
+- **Trust caveats**: warnings for sharp revenue discontinuities (demerger/restructuring) and
+  financial-sector companies; degraded-mode messaging when a source returns no data.
+- Configurable SEC EDGAR contact via `INVESTO_SEC_CONTACT`.
+- Expanded offline test suite (41 tests) covering ratios, news categorization, config, the
+  provider facade, and report assembly.
+- **An HTML research note is now written automatically.** `analyze_company` renders the report to
+  disk as part of the call and returns its location, so a client gets the document without a second
+  `export_report` round-trip; `investo analyze` does the same unless `--json`, `--html`, `--pdf` or
+  `--no-html` is given, announcing the path on **stderr** so `--json` stays pipeable.
+- **Clickable report locations.** `ExportedFile`/`ExportResult` and `AnalysisReport` carry both a
+  `file://` location and an `http://127.0.0.1` preview link served by a loopback static server, so
+  the report opens on click from a chat client that blocks `file://`. `investo analyze --open`
+  opens the written report in the default application.
 
 ### Changed
+
 - **Quality-aware scoring — cash-rich, fairly-priced compounders are no longer under-rated.** The
   valuation bucket was a pure cheapness screen (P/E · P/B · EV/EBITDA scored strictly
   lower-is-better with hard ceilings), so a high-quality company at a fair premium lost almost the
@@ -64,12 +124,23 @@ All notable changes to Investo are documented here. The format follows
 - **Analysis modules emit plain prose.** `thesis`/`ownership`/`buffett` observations no longer
   carry ✓/✗/⚠/→ glyphs; presentation is the renderer's job, and the renderer strips any residual
   dingbats at the boundary as a backstop.
+- **`ev.aggregate` blends modules by a coverage-weighted mean.** A module that found nothing now
+  carries zero weight rather than dragging the report down, and the evidence block says how many
+  modules came back empty.
+- `RelativeMetric` carries a `unit` (`ratio`/`percent`); renderers no longer guess from the metric
+  name, which rendered any unrecognised ratio (EV/EBITDA, P/S) as a percentage.
+- **~4–5× faster `analyze_company`**: independent network fetches (financials, peers, news,
+  ESG) now run concurrently; peer rows are fetched in parallel.
+- In-process caches now have TTLs (15 min for company info, 1 h for FX).
+- Dropped the weak "quarter" news keyword to reduce earnings/management misclassification.
 
 ### Removed
+
 - `investo.analysis.report_html` — replaced by the `investo.render` package. (The only importer was
   the CLI.)
 
 ### Fixed
+
 - **Dividend yield was silently `None` for every company.** yfinance reports `dividendYield` as a
   *percent* (`1.61` = 1.61%), but `ratios.py` filtered it as a fraction with a `<= 0.15` bound, so
   every real yield — even a 0.3% one — was discarded. `dividend_yield` now prefers the unambiguous
@@ -88,73 +159,6 @@ All notable changes to Investo are documented here. The format follows
   listed), `SPICEJET.NS` (resolves on BSE only → `SPICEJET.BO`), plus `LTIM.NS` and `AKZOINDIA.NS`
   removed as unresolvable across `.NS`/`.BO`. Added `scripts/validate_peers.py` to catch this
   class of rot, which no offline test can.
-
-### Added
-- **Automotive ER&D peer group** (`KPITTECH.NS`, `TATAELXSI.NS`, `TATATECH.NS`, `LTTS.NS`,
-  `CYIENT.NS`) — the market treats these as one cohort, and Yahoo's "Information Technology
-  Services" classification points the entire analysis at the wrong drivers, CAGR and risks. Plus
-  `auto_components`, `hospitals_diagnostics` and `capital_goods_defence`.
-- **Peer-resolution ladder** (`peers.resolve_peer_group`): curated membership → keyword match on
-  Yahoo's industry/sector → Finnhub → none. The resulting `PeerBasis` travels on `PeerComparison`,
-  `RelativeComparison` and `IndustryIntelligence`, so a guessed cohort can never be presented with
-  the confidence of a deliberate one.
-- **Three more relative metrics** — EV/EBITDA, ROA and P/S (7 → 10). Coverage is measured against
-  the metrics the peer set can actually rank on, so adding a metric Indian peers rarely report
-  doesn't silently mark every Indian company down.
-- **A peer group can reframe the industry narrative**, not just its outlook and CAGR: KPIT's
-  sub-domains are now SDV, ADAS and EV powertrain rather than "IT services & outsourcing". Yahoo's
-  raw `industry` string is preserved alongside — it's a fact, and hiding the disagreement would be
-  worse than showing it.
-- **`docs/confidence.md`** — worked examples, the reasoning behind each factor, and the known
-  limitations of the confidence model.
-- `evidence.confidence(reliability_factor=…)` for module-specific discounts, and per-group
-  provenance (`version`, `updated_at`, `source`) in `peers.yaml`.
-
-### Changed
-- **`ev.aggregate` blends modules by a coverage-weighted mean.** A module that found nothing now
-  carries zero weight rather than dragging the report down, and the evidence block says how many
-  modules came back empty.
-- `RelativeMetric` carries a `unit` (`ratio`/`percent`); renderers no longer guess from the metric
-  name, which rendered any unrecognised ratio (EV/EBITDA, P/S) as a percentage.
-
-### Added
-- **Listed in the [Cursor Directory](https://cursor.directory)** with a one-click "Add to Cursor"
-  install. The recommended config is now **`uvx --from git+…/Investo investo-mcp`** — it builds
-  & runs Investo straight from GitHub with **no clone and no venv** (requires `uv`), so it works
-  from a global config for any user. The `python scripts/mcp_launcher.py` launcher remains the
-  from-source option for project-scoped setups. Verified end-to-end via an MCP stdio handshake.
-- **Rate limiting** (`sources/ratelimit.py`): per-provider minimum call interval + an Alpha
-  Vantage daily cap that falls back to Yahoo when exhausted; tunable via
-  `INVESTO_RATE_MIN_INTERVAL` / `INVESTO_AV_DAILY_CAP`.
-- **Application logging** to **stderr** (stdout stays clean for MCP JSON-RPC), controlled by
-  `INVESTO_LOG_LEVEL`; logs tool calls, provider selection, timings and rate-limit events.
-- **Stronger input validation**: `market`/`period` are enums and `get_news` `limit` is bounded
-  (1–50) in the tool JSON schemas; company name/ticker is sanitized (non-empty, length-capped).
-- **Progress notifications** during `analyze_company` (runs off the event loop; emits
-  resolve → fetch → compute → score → done).
-- Typed `SecFacts` / `ProviderStatus` models so **all 15 tools expose a precise output schema**.
-- **Provider facade** (`sources/data.py`): licensed keyed APIs (Alpha Vantage / FMP) are the
-  primary source when a key is set, with Yahoo Finance as the zero-config fallback; a
-  `provider_status` tool reports the active mode.
-- **MCP polish**: all tools carry `readOnlyHint` / `openWorldHint` annotations, human titles,
-  and typed pydantic returns so clients get an output schema + structured content.
-- **Packaging & distribution**: PyPI-ready metadata (classifiers, `py.typed`, bundled data),
-  `server.json` (MCP registry), `manifest.json` + build scripts (`.mcpb` Claude Desktop
-  bundle), CI (ruff/mypy/pytest on 3.10–3.12 × Linux/Windows) and a Trusted-Publishing
-  release workflow.
-- **Docs**: `SECURITY.md` (data-flow & privacy disclosure), `PUBLISHING.md`, `CONTRIBUTING.md`,
-  README "Data sources & legal" + "Privacy" sections and badges.
-- **Trust caveats**: warnings for sharp revenue discontinuities (demerger/restructuring) and
-  financial-sector companies; degraded-mode messaging when a source returns no data.
-- Configurable SEC EDGAR contact via `INVESTO_SEC_CONTACT`.
-- Expanded offline test suite (41 tests) covering ratios, news categorization, config, the
-  provider facade, and report assembly.
-
-### Changed
-- **~4–5× faster `analyze_company`**: independent network fetches (financials, peers, news,
-  ESG) now run concurrently; peer rows are fetched in parallel.
-- In-process caches now have TTLs (15 min for company info, 1 h for FX).
-- Dropped the weak "quarter" news keyword to reduce earnings/management misclassification.
 
 ## [0.1.0]
 
