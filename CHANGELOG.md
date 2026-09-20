@@ -141,6 +141,14 @@ All notable changes to Investo are documented here. The format follows
 
 ### Fixed
 
+- **An unpinned `mcp` dependency made a fresh install unable to start.** The requirement was
+  `mcp[cli]>=1.2.0`, which resolves to whatever is newest; mcp **2.0** removed
+  `mcp.server.fastmcp` (`FastMCP` became `MCPServer`), and `investo/server.py` imports `FastMCP`
+  at module scope. So `import investo.server` raised on any clean install, killing `investo-mcp`,
+  `python -m investo.server` and the documented `uvx --from git+…` setup. A developer with an
+  already-resolved environment saw nothing wrong, which is how it reached main. Now pinned to
+  `<2`, with `tests/test_mcp_compat.py` failing offline if the pin is widened and
+  `docs/mcp-2-migration.md` scoping the eventual migration.
 - **Dividend yield was silently `None` for every company.** yfinance reports `dividendYield` as a
   *percent* (`1.61` = 1.61%), but `ratios.py` filtered it as a fraction with a `<= 0.15` bound, so
   every real yield — even a 0.3% one — was discarded. `dividend_yield` now prefers the unambiguous
