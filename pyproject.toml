@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "investo"
-version = "0.1.0"
+version = "1.0.0"
 description = "AI investment-analysis agent (MCP server) — financials, ratios, peers, DCF, moat, risk and a 0-100 rating for NSE/BSE and global companies."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Yashvant Hange" }]
 keywords = ["mcp", "investing", "finance", "nse", "bse", "stocks", "valuation", "dcf"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",

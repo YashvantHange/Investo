@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.json",
   "name": "io.github.YashvantHange/investo",
   "description": "AI investment-analysis MCP server (India-first NSE/BSE + global): financials, ratios, peers, DCF, economic moat, risk, news and a 0-100 rating.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "repository": {
     "url": "https://github.com/YashvantHange/Investo",
     "source": "github"
@@ -11,7 +11,7 @@
     {
       "registryType": "pypi",
       "identifier": "investo",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "runtimeHint": "uvx",
       "transport": { "type": "stdio" },
       "environmentVariables": [

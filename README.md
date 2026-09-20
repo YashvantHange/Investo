@@ -102,14 +102,18 @@ investo analyze "Reliance Industries" --html reliance.html   # self-contained re
 investo analyze "Infosys" --pdf infosys.pdf                  # PDF via headless Chrome/Edge
 investo analyze "Infosys" --json --html infy.html           # flags compose; nothing is discarded
 investo analyze "Infosys" --no-html                          # skip the automatic HTML note
+investo analyze "Infosys" --open                             # open the note in your browser
 investo search "tata motors"
 ```
 
 Every `investo analyze` **writes a self-contained HTML research note automatically** (named
 `investo-<SYMBOL>-<date>.html` in the working directory) alongside its terminal output — the path is
 announced on stderr, so `--json` stays pipeable. Use `--no-html` to skip it, or `--html FILE` to
-choose the location. The MCP `analyze_company` tool does the same, returning the file in
-`html_report_path`; pass `emit_html=false` to suppress it.
+choose the location. Add `--open` to open the written note in your default browser. The MCP
+`analyze_company` tool does the same, returning the file in `html_report_path`; pass
+`emit_html=false` to suppress it. Because a chat client will refuse to follow a `file://` link, the
+tool also returns `html_report_open_url` — an `http://127.0.0.1` link served by a loopback-only
+static server, so the report opens on click.
 
 `--pdf` needs a Chromium-family browser: it uses a system **Chrome, Edge, Chromium or Brave** if one
 is installed (no setup), falls back to a managed Chromium via `pip install 'investo[pdf]' &&

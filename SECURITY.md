@@ -26,8 +26,26 @@ Investo sends **no telemetry, no analytics, and no personal data**. It does not 
 
 ## Execution safety
 
-- Investo performs **read-only** data retrieval and computation. Its tools do not write files,
-  execute shell commands, or modify your system. All tools are annotated `readOnlyHint: true`.
+- **26 of the 28 tools are read-only** data retrieval and computation, annotated
+  `readOnlyHint: true`. They execute no shell commands and modify nothing on your system.
+- **Two tools write files**, and are annotated `readOnlyHint: false` so a client can gate them:
+  - `export_report` — writes the rendered research note to an HTML or PDF file.
+  - `analyze_company` — writes an HTML copy of the report alongside its structured result.
+
+  Both write **only** inside the export directory (`INVESTO_EXPORT_DIR`, default the current
+  working directory). A path supplied by the model is sandboxed by `server._safe_export_path`,
+  which **rejects** absolute paths and `..` traversal rather than silently clamping them.
+- **PDF export may launch a browser process.** `--pdf` / `export_report` shell out to a system
+  Chrome/Edge/Chromium/Brave (or a Playwright-managed Chromium) in headless mode, with a
+  throwaway user-data directory, solely to print the generated HTML. The command line is built
+  from a discovered browser path and Investo's own arguments — never from tool input.
+  `INVESTO_CHROME` overrides discovery.
+- **A loopback preview server may be started.** So that a report link is clickable in a client
+  that blocks `file://`, Investo serves the report's directory over a static HTTP server bound
+  to **`127.0.0.1` on an ephemeral port** (one per directory, on a daemon thread). It is not
+  reachable from the network. Two caveats worth knowing: it serves *every* file in that
+  directory, so do not point `INVESTO_EXPORT_DIR` at a directory holding unrelated private
+  files; and it currently has no shutdown path, so it lives until the process exits.
 - Tool inputs are used only as query/ticker parameters to the endpoints above (URL-encoded);
   there is no `eval`, no dynamic import of user input, and no code execution path from inputs.
 - Tool failures surface as MCP `isError` results rather than crashing the server.
